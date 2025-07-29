@@ -1,0 +1,23 @@
+import pandas as pd
+df = pd.DataFrame({
+    'Nama_Bakteri': ['Escherichia coli', 'Salmonella spp.', 'Staphylococcus aureus', 'Streptococcus pyogenes', 'Pseudomonas aeruginosa', 'Bacillus subtilis', 'Enterococcus faecalis', 'Klebsiella pneumoniae', 'Proteus mirabilis', 'Aeromonas salmonicida', 'Vibrio cholerae', 'Shigella spp.', 'Citrobacter freundii', 'Enterobacter aerogenes', 'Serratia marcescens', 'Acinetobacter baumannii', 'Haemophilus influenzae', 'Neisseria gonorrhoeae', 'Listeria monocytogenes', 'Clostridium perfringens'],
+    'Gram': ['-', '-', '+', '+', '-', '+', '+', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '+', '+'],
+    'Katalase': ['+', '+', '+', '-', '+', '+', '-', '+', '+', '+', '+', '-', '+', '+', '+', '+', '+', '+', '+', '-'],
+    'Oksidase': ['-', '-', '+', '-', '+', '+', '-', '-', '+', '+', '+', '-', '-', '-', '-', '-', '+', '+', '+', '-'],
+    'Glukosa': ['+', '+', '+', '+', '-', '+', '+', '+', '+', '+', '+', '+', '+', '+', '+', '-', '+', '+', '+', '+'],
+    'Laktosa': ['+', '-', '+', '-', '-', '-', '+', '+', '-', '+', '-', '-', '+', '+', '-', '-', '-', '-', '+', '-'],
+    'H2S': ['-', '+', '-', '-', '-', '-', '-', '+', '+', '-', '-', '+', '+', '-', '-', '-', '-', '-', '-', '+'],
+    'MR': ['+', '+', '+', '+', '-', '+', '-', '+', '+', '+', '-', '+', '+', '-', '+', '-', '-', '-', '+', '+'],
+    'VP': ['-', '-', '+', '-', '+', '+', '+', '+', '-', '+', '+', '-', '-', '+', '+', '-', '-', '-', '-', '-'],
+    'Citrate': ['-', '+', '+', '-', '+', '+', '+', '+', '+', '+', '+', '-', '+', '+', '+', '+', '-', '-', '+', '-'],
+    'Urease': ['-', '-', '-', '-', '-', '-', '-', '+', '+', '-', '-', '-', '+', '-', '+', '+', '-', '-', '-', '-'],
+    'Indol': ['+', '-', '-', '-', '-', '-', '-', '-', '-', '-', '+', '-', '-', '-', '-', '-', '+', '-', '-', '-'],
+    'Motilitas': ['+', '+', '-', '-', '+', '+', '-', '-', '+', '-', '+', '-', '+', '+', '+', '-', '-', '-', '+', '-'],
+    'Dnase': ['-', '-', '+', '-', '+', '-', '-', '-', '-', '+', '-', '-', '-', '-', '+', '-', '-', '+', '-', '+'],
+    'Esculin': ['-', '-', '-', '-', '-', '+', '+', '-', '-', '-', '-', '-', '+', '+', '-', '-', '-', '-', '+', '-'],
+    'Nitrate': ['+', '+', '+', '-', '+', '+', '+', '+', '+', '+', '+', '+', '+', '+', '+', '-', '+', '-', '+', '+'],
+    'Deskripsi': ['Bakteri Gram-negatif, oksidase-negatif, anggota flora normal usus.', 'Bakteri Gram-negatif, patogen penyebab salmonelosis.', 'Bakteri Gram-positif, sering ditemukan di kulit dan selaput lendir.', 'Bakteri Gram-positif, penyebab umum faringitis.', 'Bakteri Gram-negatif, patogen oportunistik yang resistan terhadap banyak antibiotik.', 'Bakteri Gram-positif, pembentuk spora, biasa ditemukan di tanah.', 'Bakteri Gram-positif, bagian dari flora normal usus manusia.', 'Bakteri Gram-negatif, dapat menyebabkan pneumonia.', 'Bakteri Gram-negatif, dikenal dengan kemampuannya untuk berkerumun.', 'Patogen ikan penyebab furunculosis.', 'Bakteri Gram-negatif, penyebab kolera.', 'Bakteri Gram-negatif, penyebab disentri basiler.', 'Bakteri Gram-negatif, dapat ditemukan di lingkungan dan usus.', 'Bakteri Gram-negatif, dapat menyebabkan infeksi nosokial.', 'Bakteri Gram-negatif, menghasilkan pigmen merah khas.', 'Bakteri Gram-negatif, patogen penting di rumah sakit.', 'Bakteri Gram-negatif, membutuhkan faktor X dan V untuk tumbuh.', 'Bakteri Gram-negatif, penyebab gonore.', 'Bakteri Gram-positif, penyebab listeriosis.', 'Bakteri Gram-positif, pembentuk spora, penyebab gas gangren.'],
+    'Habitat': ['Usus manusia dan hewan', 'Usus manusia dan hewan', 'Kulit, selaput lendir', 'Saluran pernapasan atas', 'Tanah, air, lingkungan rumah sakit', 'Tanah, air, udara', 'Usus manusia dan hewan', 'Usus, saluran pernapasan', 'Usus, tanah, air', 'Ikan air tawar', 'Lingkungan perairan', 'Usus manusia dan primata', 'Tanah, air, saluran cerna', 'Lingkungan, usus', 'Tanah, air, tanaman', 'Lingkungan rumah sakit', 'Saluran pernapasan atas manusia', 'Selaput lendir saluran urogenital', 'Tanah, air, makanan yang terkontaminasi', 'Tanah, usus manusia dan hewan'],
+    'Patogenisitas': ['Oportunistik, dapat menyebabkan infeksi saluran kemih, diare', 'Patogen', 'Patogen', 'Patogen', 'Patogen oportunistik', 'Jarang patogen', 'Oportunistik', 'Patogen oportunistik', 'Oportunistik', 'Patogen ikan', 'Patogen', 'Patogen', 'Oportunistik', 'Oportunistik', 'Oportunistik', 'Patogen', 'Patogen', 'Patogen', 'Patogen', 'Patogen']
+})
+df.to_excel('C:\Python\identifikasi-bakteri-streamlit\database_bakteri.xlsx', index=False)
