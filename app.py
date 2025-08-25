@@ -1,197 +1,235 @@
 import streamlit as st
 import pandas as pd
-from io import BytesIO
-from docx import Document
-from docx.shared import Inches
-from bacdive.client import BacdiveClient
+import io
+import time
+import os
+from auth import get_authenticated_session
+from bacdive_mapper import (
+    fetch_and_cache_profiles_by_taxonomy,
+    calculate_weighted_similarity,
+    normalize_columns,
+    extract_clean_profile
+)
 
+# --- 1. Konfigurasi Aplikasi ---
 st.set_page_config(
-    page_title="🧫 BakteriFinder: Aplikasi Identifikasi Bakteri Otomatis",
+    page_title="🧬 Identifikasi Bakteri (BacDive API)",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
+# --- 2. Inisialisasi Sesi ---
 @st.cache_resource
-def init_bacdive_client():
-    client = BacdiveClient("fortadox@gmail.com", "qkz899mv24")
-    return client
+def init_session():
+    try:
+        email = st.secrets["bacdive"]["email"]
+        password = st.secrets["bacdive"]["password"]
+        session = get_authenticated_session(email, password)
+        if session:
+            st.success("Autentikasi Berhasil!")
+            return session
+        else:
+            st.error("Autentikasi BacDive gagal. Periksa kredensial Anda di secrets.toml.")
+            return None
+    except KeyError:
+        st.error("Kredensial BacDive (email/password) tidak ditemukan di secrets.toml.")
+        return None
+    except Exception as e:
+        st.error(f"Gagal menginisialisasi sesi: {e}")
+        return None
 
-def identifikasi_bakteri(row_data, database):
-    matches = []
-    db_cols = [col for col in database.columns if col not in ["Nama_Bakteri", "Deskripsi", "Habitat", "Patogenisitas"]]
-    for _, db_row in database.iterrows():
-        score = 0
-        for column in db_cols:
-            if column in row_data and str(row_data[column]).strip() == str(db_row[column]).strip():
-                score += 1
+# --- 3. Logika Inti ---
+def process_sample(session, user_input, log_container):
+    """Fungsi utama untuk memproses satu sampel: fetch, cache, dan analisis."""
+    genus = user_input.get("Genus")
+    if not genus or pd.isna(genus):
+        st.warning("Kolom 'Genus' tidak ditemukan atau kosong untuk sampel ini. Sampel dilewati.")
+        return []
+
+    status_placeholder = st.empty()
+    
+    raw_profiles = fetch_and_cache_profiles_by_taxonomy(session, genus, status_placeholder, log_container)
+    
+    if not raw_profiles:
+        status_placeholder.warning(f"Tidak ada profil yang ditemukan untuk genus '{genus}'.")
+        time.sleep(3)
+        status_placeholder.empty()
+        return []
+    
+    status_placeholder.success(f"Ditemukan {len(raw_profiles)} profil untuk genus '{genus}'. Memulai analisis perbandingan...")
+    time.sleep(2)
+
+    identification_results = []
+    progress_bar = st.progress(0)
+    total_profiles = len(raw_profiles)
+
+    for i, (bacdive_id, bacdive_profile) in enumerate(raw_profiles.items()):
+        status_placeholder.text(f"⚙️ Membandingkan dengan profil {i+1} dari {total_profiles} (ID: {bacdive_id})...")
         
-        confidence = (score / len(db_cols)) * 100
-        matches.append((db_row["Nama_Bakteri"], confidence, db_row["Deskripsi"])) 
-    matches.sort(key=lambda x: x[1], reverse=True)
-    return matches
-
-def generate_full_docx_report(all_samples_data, all_results, bacdive_client):
-    document = Document()
-    document.add_heading('Laporan Hasil Identifikasi Bakteri - Laporan Lengkap', 0)
-    document.add_paragraph(f"Tanggal Analisis: {pd.to_datetime('today').strftime('%d %B %Y')}")
-    document.add_paragraph(f"Total Sampel Dianalisis: {len(all_samples_data)}")
-    document.add_page_break()
-
-    for index, sample_data in all_samples_data.iterrows():
-        sample_id = sample_data['Sampel']
-        top_match = all_results[sample_id][0]
-
-        document.add_heading(f'ID Sampel: {sample_id}', level=1)
-
-        document.add_heading('Hasil Uji Biokimia', level=2)
-        table_data = sample_data.drop("Sampel").reset_index()
-        table_data.columns = ['Uji Biokimia', 'Hasil']
-        table = document.add_table(rows=1, cols=2)
-        table.style = 'Table Grid'
-        hdr_cells = table.rows[0].cells
-        hdr_cells[0].text = 'Uji Biokimia'
-        hdr_cells[1].text = 'Hasil'
-        for _, row in table_data.iterrows():
-            row_cells = table.add_row().cells
-            row_cells[0].text = str(row['Uji Biokimia'])
-            row_cells[1].text = str(row['Hasil'])
-
-        document.add_heading('Hasil Identifikasi', level=2)
-        p = document.add_paragraph()
-        p.add_run('Bakteri Teridentifikasi: ').bold = True
-        p.add_run(top_match[0])
-        p = document.add_paragraph()
-        p.add_run('Tingkat Kepercayaan: ').bold = True
-        p.add_run(f"{top_match[1]:.2f}%")
-        p = document.add_paragraph()
-        p.add_run('Deskripsi Singkat: ').bold = True
-        p.add_run(top_match[2])
-
-        # Fetch BacDive info for each sample
-        count = bacdive_client.search(taxonomy=top_match[0])
-        if count > 0:
-            bacdive_info = next(bacdive_client.retrieve(), None)
-            if bacdive_info:
-                document.add_heading('Informasi Detail dari BacDive', level=2)
-                general_info = bacdive_info.get('General', {})
-                name_morphology = general_info.get('Name, Type, Strain, Morphology', {})
-                culture_growth = general_info.get('Culture and growth conditions', {})
-
-                if name_morphology.get('gram stain'):
-                    document.add_paragraph(f"Pewarnaan Gram: {name_morphology['gram stain']}")
-                if name_morphology.get('cell shape'):
-                    document.add_paragraph(f"Bentuk Sel: {name_morphology['cell shape']}")
-                if culture_growth.get('culture temp'):
-                    document.add_paragraph(f"Suhu Pertumbuhan: {culture_growth['culture temp']}")
-                if culture_growth.get('oxygen tolerance'):
-                    document.add_paragraph(f"Toleransi Oksigen: {culture_growth['oxygen tolerance']}")
+        score, details = calculate_weighted_similarity(user_input, bacdive_profile)
         
-        if index < len(all_samples_data) - 1:
-            document.add_page_break()
+        if score > 0:
+            clean_profile = extract_clean_profile(bacdive_profile)
+            identification_results.append({
+                "Rank": 0,
+                "Nama Bakteri": clean_profile.get("Nama Bakteri", "N/A"),
+                "Persentase": score,
+                "ID": bacdive_id,
+                "details": details
+            })
+        progress_bar.progress((i + 1) / total_profiles)
 
-    buffer = BytesIO()
-    document.save(buffer)
-    buffer.seek(0)
-    return buffer
+    status_placeholder.text("✅ Perbandingan selesai!")
+    time.sleep(1)
+    status_placeholder.empty()
+    progress_bar.empty()
+    
+    identification_results.sort(key=lambda x: x["Persentase"], reverse=True)
+    for i, result in enumerate(identification_results):
+        result["Rank"] = i + 1
+        
+    return identification_results
+
+def fetch_and_display_detailed_profiles(session, genera_list):
+    """Mengambil semua profil mentah, menampilkannya dalam tabel detail, dan mengembalikan tabel tersebut."""
+    st.header("3. Data Detail dari BacDive")
+    st.info("Tabel ini berisi data lengkap yang diambil dari BacDive untuk setiap strain, yang telah diratakan (flattened) dari format JSON aslinya.")
+
+    all_dfs = []
+    progress_bar = st.progress(0, text="Mengambil profil untuk semua genus...")
+
+    for i, genus in enumerate(genera_list):
+        status_placeholder = st.empty()
+        log_container = st.container()
+        raw_profiles = {}
+
+        with st.expander(f"Log Fetch untuk Genus: {genus}", expanded=False):
+            raw_profiles = fetch_and_cache_profiles_by_taxonomy(session, genus, status_placeholder, st)
+
+        if raw_profiles:
+            for bacdive_id, profile_json in raw_profiles.items():
+                # Flatten the JSON data
+                df_flat = pd.json_normalize(profile_json, sep='_')
+                df_flat['bacdive_id'] = bacdive_id
+                df_flat['genus_input'] = genus
+                all_dfs.append(df_flat)
+        
+        progress_bar.progress((i + 1) / len(genera_list), text=f"Selesai mengambil profil untuk {genus}")
+        status_placeholder.empty()
+
+    progress_bar.empty()
+    
+    if not all_dfs:
+        st.warning("Tidak ada profil yang ditemukan untuk genus yang diberikan.")
+        return pd.DataFrame()
+
+    final_df = pd.concat(all_dfs, ignore_index=True)
+
+    cols = ['bacdive_id', 'genus_input'] + [col for col in final_df.columns if col not in ['bacdive_id', 'genus_input']]
+    final_df = final_df[cols]
+
+    with st.expander("Tampilkan/Sembunyikan Tabel Data Detail", expanded=True):
+        st.dataframe(final_df)
+        
+        csv_buffer = io.StringIO()
+        final_df.to_csv(csv_buffer, index=False)
+        
+        st.download_button(
+            label="📥 Download Data Detail Lengkap (.csv)",
+            data=csv_buffer.getvalue(),
+            file_name="bacdive_detailed_data.csv",
+            mime="text/csv",
+            key="download-detailed-profiles"
+        )
+    return final_df
+
+# --- 4. Tampilan Aplikasi (UI) ---
+def highlight_mismatch(s):
+    return ['background-color: #FFCDD2' if v == '❌' else '' for v in s]
 
 def main():
-    st.title("🧫 BakteriFinder: Aplikasi Identifikasi Bakteri Otomatis")
+    st.title("🔬 Identifikasi Bakteri Berbasis Genus")
+    st.info("Upload file CSV/Excel dengan kolom **Sample_Name** dan **Genus** untuk memulai identifikasi.")
 
-    client = init_bacdive_client()
-    if not client or not client.authenticated:
-        st.error("Login otomatis ke BacDive gagal. Periksa kredensial atau koneksi jaringan.")
+    session = init_session()
+    if not session:
         st.stop()
-    else:
-        st.success("Berhasil terhubung ke BacDive API.")
-
-    st.session_state.client = client
 
     with st.sidebar:
         st.header("Panduan Penggunaan")
         st.info(
-            "1. **Upload File**: Gunakan format `.csv` atau `.xlsx`.\n"
-            "2. **Mulai Analisis**: Klik tombol 'Identifikasi Bakteri'.\n"
-            "3. **Lihat Hasil**: Pilih sampel dari dropdown untuk melihat laporan.\n"
-            "4. **Unduh Laporan**: Klik tombol download untuk menyimpan laporan."
+            "1. **Download Template**: Unduh `template_input.csv`.\n"
+            "2. **Isi Data**: Masukkan nama sampel, **genus**, dan hasil uji lab.\n"
+            "3. **Upload File**: Unggah file yang sudah diisi.\n"
+            "4. **Hasil**: Hasil akan muncul secara otomatis per sampel."
         )
+        if os.path.exists("template_input.csv"):
+            with open("template_input.csv", "r") as f:
+                st.download_button(
+                    label="📥 Download Template Input",
+                    data=f.read(),
+                    file_name="template_input.csv",
+                    mime="text/csv"
+                )
 
-    uploaded_file = st.file_uploader("Upload file CSV atau Excel", type=["csv", "xlsx"])
+    st.header("1. Upload File Input")
+    uploaded_file = st.file_uploader("Unggah file CSV/Excel", type=["csv", "xlsx"])
 
     if uploaded_file:
         try:
-            if uploaded_file.name.endswith('.csv'):
-                data = pd.read_csv(uploaded_file)
-            else:
-                data = pd.read_excel(uploaded_file)
-            st.session_state.data = data
-            st.write("**Preview Data:**")
-            st.dataframe(data.head())
-        except Exception as e:
-            st.error(f"Terjadi kesalahan saat membaca file: {e}")
-            st.stop()
-
-    if 'data' in st.session_state and st.button("Identifikasi Bakteri"):
-        with st.spinner("Menganalisis semua sampel..."):
-            try:
-                database = pd.read_excel("database_bakteri.xlsx")
-                st.session_state.database = database
-            except FileNotFoundError:
-                st.error("File 'database_bakteri.xlsx' tidak ditemukan.")
-                st.stop()
-
-            all_results = {}
-            for index, row in st.session_state.data.iterrows():
-                sample_id = row['Sampel']
-                top_matches = identifikasi_bakteri(row, st.session_state.database)
-                all_results[sample_id] = top_matches
-            st.session_state.all_results = all_results
-
-    if 'all_results' in st.session_state:
-        st.header("Hasil Identifikasi Keseluruhan")
-        summary_df = pd.DataFrame([
-            {'Sampel': sample, 'Bakteri Teridentifikasi': results[0][0], 'Tingkat Kepercayaan (%)': f"{results[0][1]:.2f}"}
-            for sample, results in st.session_state.all_results.items()
-        ])
-        st.dataframe(summary_df)
-
-        # --- Download Button for Full Report ---
-        with st.spinner("Menyiapkan laporan lengkap untuk diunduh..."):
-            docx_buffer = generate_full_docx_report(
-                st.session_state.data, 
-                st.session_state.all_results, 
-                st.session_state.client
-            )
-            st.download_button(
-                label="📥 Download Laporan Lengkap (.docx)",
-                data=docx_buffer,
-                file_name="Laporan_Identifikasi_Lengkap.docx",
-                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-            )
-
-        st.header("Laporan Detail per Sampel")
-        selected_sample = st.selectbox("Pilih Sampel untuk melihat detail laporan:", options=st.session_state.data['Sampel'].unique())
-
-        if selected_sample:
-            sample_data = st.session_state.data[st.session_state.data['Sampel'] == selected_sample].iloc[0]
-            top_match = st.session_state.all_results[selected_sample][0]
+            data = pd.read_csv(uploaded_file) if uploaded_file.name.endswith('.csv') else pd.read_excel(uploaded_file)
+            data = normalize_columns(data)
             
-            st.subheader(f"Preview Laporan untuk Sampel: {selected_sample}")
-            st.markdown(f"**Bakteri Teridentifikasi:** {top_match[0]}")
-            st.markdown(f"**Tingkat Kepercayaan:** {top_match[1]:.2f}%")
-            st.markdown(f"**Deskripsi:** {top_match[2]}")
+            st.header("2. Preview Data Input (Setelah Normalisasi)")
+            st.dataframe(data)
 
-            st.subheader("Hasil Uji Biokimia")
-            st.table(sample_data.drop("Sampel"))
+            unique_genera = data["Genus"].dropna().unique()
 
-            with st.spinner(f"Mengambil data dari BacDive untuk {top_match[0]}..."):
-                count = st.session_state.client.search(taxonomy=top_match[0])
-                if count > 0:
-                    bacdive_info = next(st.session_state.client.retrieve(), None)
-                    if bacdive_info:
-                        st.subheader("Informasi Tambahan dari BacDive")
-                        st.json(bacdive_info)
-                else:
-                    st.warning("Tidak ditemukan informasi tambahan di BacDive.")
+            if len(unique_genera) > 0:
+                st.info(f"Ditemukan {len(unique_genera)} genus unik di file Anda: **{', '.join(unique_genera)}**.")
+                
+                fetch_and_display_detailed_profiles(session, unique_genera)
+
+                st.header("4. Hasil Identifikasi per Sampel")
+                for index, row in data.iterrows():
+                    st.divider()
+                    sample_name = row.get("Sample_Name", f"Sampel #{index + 1}")
+                    st.subheader(f"▶️ Hasil untuk Sampel: {sample_name}")
+                    
+                    user_input = row.to_dict()
+                    
+                    with st.expander(f"Lihat Log Detail Proses Fetch API untuk Sampel: {sample_name}"):
+                        log_container = st.container()
+                        results = process_sample(session, user_input, log_container)
+
+                    if results:
+                        top_result = results[0]
+                        st.success(f"**Identifikasi Utama:** `{top_result['Nama Bakteri']}` ({top_result['Persentase']:.2f}% kemiripan)")
+
+                        with st.expander("Lihat Daftar Kandidat & Laporan Detail"):
+                            st.subheader("Daftar Kandidat Teratas (Top 10)")
+                            results_df = pd.DataFrame(results).head(10)[["Rank", "Nama Bakteri", "Persentase", "ID"]]
+                            st.dataframe(results_df)
+
+                            st.subheader("Laporan Perbandingan (vs Kandidat Utama)")
+                            report_df = pd.DataFrame(top_result['details'])
+                            st.dataframe(report_df.style.apply(highlight_mismatch, subset=['Cocok']))
+
+                            csv_buffer = io.StringIO()
+                            results_df.to_csv(csv_buffer, index=False)
+                            st.download_button(
+                                label=f"📥 Download Kandidat (.csv) untuk {sample_name}",
+                                data=csv_buffer.getvalue(),
+                                file_name=f"kandidat_{sample_name.replace(' ', '_')}.csv",
+                                mime="text/csv",
+                                key=f"csv_{index}"
+                            )
+                    else:
+                        st.write(f"Tidak ada hasil yang cocok ditemukan untuk sampel {sample_name}.")
+
+        except Exception as e:
+            st.error(f"Terjadi kesalahan saat memproses file: {e}")
+            st.exception(e)
 
 if __name__ == "__main__":
     main()

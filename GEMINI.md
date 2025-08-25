@@ -1,147 +1,239 @@
-# Prompt Perbaikan Aplikasi Identifikasi Bakteri
+# Prompt untuk Debugging Ekstraksi Parameter BacDive
 
-## Masalah Utama yang Perlu Diperbaiki:
+## Masalah yang Dihadapi
+Aplikasi Streamlit untuk identifikasi bakteri menggunakan BacDive API berhasil mengambil data strain, namun **tidak dapat menampilkan detail parameter** seperti Gram_stain, Motility, Catalase, Oxidase, dll. Semua parameter menunjukkan nilai "N/A".
 
-### 1. **Format Data BacDive API Response**
-**Masalah**: Fungsi `display_bacdive_info()` mengharapkan struktur data yang tidak sesuai dengan format response sebenarnya dari BacDive API.
+## Analisis Masalah
+1. **Struktur JSON BacDive tidak sesuai dengan mapping** yang ada di `PARAM_TO_BACDIVE_KEY`
+2. **Fungsi `extract_clean_profile()`** gagal mengekstrak nilai dari nested JSON
+3. **Path navigasi JSON** mungkin salah atau tidak lengkap
+4. **Normalisasi nilai** (positive/negative) tidak bekerja dengan baik
 
-**Perbaikan yang diperlukan**:
-- Tambahkan logging untuk melihat struktur data yang dikembalikan dari BacDive API
-- Sesuaikan parsing data dengan format response yang sebenarnya
-- Tambahkan penanganan untuk berbagai format response yang mungkin
+## Tugas yang Perlu Dilakukan
 
+### 1. Debug Struktur Data JSON
 ```python
-def display_bacdive_info(bacdive_info):
-    st.subheader("Informasi Tambahan dari BacDive")
+# Tambahkan logging untuk melihat struktur actual JSON
+def debug_json_structure(strain_data, bacdive_id):
+    """Debug function to understand actual JSON structure"""
+    print(f"\n=== DEBUG JSON STRUCTURE FOR ID: {bacdive_id} ===")
     
-    # Debug: tampilkan struktur data
-    st.write("Debug - Raw BacDive data structure:")
-    st.json(bacdive_info)
+    # Print main sections
+    for main_key in strain_data.keys():
+        print(f"Main section: {main_key}")
+        if isinstance(strain_data[main_key], dict):
+            for sub_key in strain_data[main_key].keys():
+                print(f"  - {sub_key}: {type(strain_data[main_key][sub_key])}")
     
-    # Perbaiki parsing sesuai struktur sebenarnya
-    # Contoh: jika data berbentuk list atau nested dict yang berbeda
+    # Specific check for morphology and physiology sections
+    if 'morphology' in strain_data:
+        print(f"\nMORPHOLOGY KEYS: {list(strain_data['morphology'].keys())}")
+    
+    if 'physiology and metabolism' in strain_data:
+        print(f"PHYSIOLOGY KEYS: {list(strain_data['physiology and metabolism'].keys())}")
+    
+    return strain_data
 ```
 
-### 2. **Algoritma Identifikasi Bakteri**
-**Masalah**: Algoritma matching terlalu sederhana dan tidak menangani variasi format data dengan baik.
-
-**Perbaikan yang diperlukan**:
-- Implementasikan normalisasi data yang lebih robust
-- Tambahkan scoring algorithm yang lebih sophisticated
-- Tangani missing values dan partial matches
-- Implementasikan fuzzy matching untuk nama bakteri
-
+### 2. Perbaiki Fungsi Extract Clean Profile
 ```python
-def identifikasi_bakteri_improved(row_data, database):
-    # Implementasi algoritma yang lebih canggih
-    # - Weighted scoring berdasarkan importance test
-    # - Fuzzy string matching
-    # - Confidence interval calculation
-```
+def extract_clean_profile_fixed(strain_data, debug=False):
+    """Fixed version with better JSON navigation and debugging"""
+    profile = {}
+    
+    if debug:
+        debug_json_structure(strain_data, strain_data.get('id', 'unknown'))
+    
+    # Extract taxonomy (this probably works)
+    try:
+        taxonomy = strain_data['general']['taxonomy']
+        species = taxonomy['species']
+        subspecies = taxonomy.get('subspecies', '')
+        profile['Nama Bakteri'] = f"{taxonomy['genus']} {species} {subspecies}".strip()
+    except KeyError:
+        profile['Nama Bakteri'] = "Unknown Species"
 
-### 3. **Integrasi BacDive API yang Lebih Robust**
-**Masalah**: Pencarian di BacDive tidak optimal dan tidak menangani berbagai format nama bakteri.
+    # Enhanced parameter extraction with multiple fallback strategies
+    for param in get_param_keys():
+        profile[param] = extract_parameter_value(strain_data, param, debug)
+    
+    return profile
 
-**Perbaikan yang diperlukan**:
-- Implementasikan multiple search strategies (genus only, genus+species, dengan/tanpa subspecies)
-- Tambahkan fallback search jika exact match gagal
-- Implementasikan caching untuk mengurangi API calls
-- Tambahkan error handling yang lebih baik
-
-```python
-def search_bacdive_robust(client, bacteria_name):
-    # Strategy 1: Full name search
-    # Strategy 2: Genus + species only
-    # Strategy 3: Genus only
-    # Strategy 4: Partial matching
-```
-
-### 4. **Penanganan Template dan Upload File**
-**Masalah**: Normalisasi data upload tidak konsisten dengan database internal.
-
-**Perbaikan yang diperlukan**:
-- Standardisasi format kolom antara template, upload, dan database
-- Implementasikan validation untuk uploaded data
-- Tambahkan mapping yang lebih comprehensive untuk berbagai format input
-
-### 5. **User Experience Improvements**
-**Perbaikan yang diperlukan**:
-- Tambahkan progress indicators untuk operasi yang memakan waktu
-- Implementasikan session state management yang lebih baik
-- Tambahkan export functionality untuk hasil identifikasi
-- Implementasikan batch processing dengan progress bar
-
-### 6. **Error Handling dan Logging**
-**Perbaikan yang diperlukan**:
-- Tambahkan comprehensive error handling untuk semua API calls
-- Implementasikan logging untuk debugging
-- Tambahkan user-friendly error messages
-- Implementasikan retry mechanism untuk failed API calls
-
-### 7. **Database Structure Optimization**
-**Perbaikan yang diperlukan**:
-- Standarisasi format data dalam database_bakteri.xlsx
-- Tambahkan metadata untuk setiap test (importance weight, category)
-- Implementasikan data validation untuk database entries
-
-## Prioritas Perbaikan:
-
-### **Priority 1 (Critical)**:
-1. Fix BacDive API data parsing
-2. Improve bacteria identification algorithm
-3. Standardize data formats across all components
-
-### **Priority 2 (Important)**:
-1. Implement robust error handling
-2. Add progress indicators
-3. Improve search strategies
-
-### **Priority 3 (Enhancement)**:
-1. Add export functionality
-2. Implement caching
-3. Add data validation
-
-## Implementasi yang Disarankan:
-
-### Step 1: Debug dan Analisis Data BacDive
-```python
-# Tambahkan fungsi debug untuk memahami format response BacDive
-def debug_bacdive_response(client, bacteria_name):
-    count = client.search(taxonomy=bacteria_name)
-    if count > 0:
-        for i, entry in enumerate(client.retrieve()):
-            st.write(f"Entry {i}:")
-            st.json(entry)
-            if i >= 2:  # Limit untuk debug
+def extract_parameter_value(strain_data, param, debug=False):
+    """Enhanced parameter extraction with multiple strategies"""
+    if param not in PARAM_TO_BACDIVE_KEY:
+        return 'N/A'
+    
+    paths = PARAM_TO_BACDIVE_KEY[param]
+    found_value = None
+    
+    for path_index, keys in enumerate(paths):
+        try:
+            value = strain_data
+            navigation_log = f"Path {path_index + 1}: "
+            
+            for key_index, key in enumerate(keys):
+                navigation_log += f"[{key}]"
+                
+                if isinstance(value, list):
+                    # Strategy 1: Find dict in list with key
+                    temp_value = None
+                    for item in value:
+                        if isinstance(item, dict) and key in item:
+                            temp_value = item[key]
+                            break
+                    value = temp_value
+                elif isinstance(value, dict):
+                    value = value.get(key)
+                else:
+                    value = None
+                    break
+                
+                if value is None:
+                    break
+            
+            if debug and value is not None:
+                print(f"  {param} - {navigation_log} -> Found: {value}")
+            
+            if value is not None:
+                found_value = normalize_bacdive_value(value)
                 break
+                
+        except (KeyError, TypeError, AttributeError) as e:
+            if debug:
+                print(f"  {param} - Path {path_index + 1} failed: {e}")
+            continue
+    
+    return found_value if found_value is not None else 'N/A'
+
+def normalize_bacdive_value(value):
+    """Normalize BacDive values to standard format"""
+    if isinstance(value, dict):
+        # Check common BacDive dict structures
+        for possible_key in ['ability', 'activity', 'result', 'value', 'reaction']:
+            if possible_key in value:
+                return normalize_simple_value(value[possible_key])
+        
+        # If no standard key found, return the dict as string representation
+        return str(value)
+    else:
+        return normalize_simple_value(value)
+
+def normalize_simple_value(value):
+    """Normalize simple values to positive/negative"""
+    if value is None:
+        return 'N/A'
+    
+    str_value = str(value).lower().strip()
+    
+    # Positive indicators
+    positive_indicators = ['+', 'positive', 'yes', 'ya', 'acid', 'positif', 
+                          'acid production', 'fermentation', 'present', 'detected']
+    
+    # Negative indicators  
+    negative_indicators = ['-', 'negative', 'no', 'tidak', 'negatif', 
+                          'absent', 'not detected', 'none']
+    
+    if any(indicator in str_value for indicator in positive_indicators):
+        return 'positive'
+    elif any(indicator in str_value for indicator in negative_indicators):
+        return 'negative'
+    else:
+        return str_value
 ```
 
-### Step 2: Refactor Identification Algorithm
+### 3. Tambahkan Mode Debug di Main App
 ```python
-def advanced_bacteria_identification(test_results, database, weights=None):
-    # Implementasi scoring yang lebih canggih
-    # Dengan weighted tests dan confidence calculation
-    pass
+# Di fungsi main(), tambahkan checkbox debug
+debug_mode = st.sidebar.checkbox("🐛 Debug Mode", help="Tampilkan struktur JSON untuk debugging")
+
+# Modifikasi pemanggilan extract_clean_profile
+if debug_mode:
+    clean_profile = extract_clean_profile_fixed(bacdive_profile, debug=True)
+else:
+    clean_profile = extract_clean_profile(bacdive_profile)
 ```
 
-### Step 3: Implement Robust BacDive Integration
+### 4. Tambahkan Sample Data Inspector
 ```python
-def enhanced_bacdive_search(client, bacteria_name):
-    # Multi-strategy search dengan fallback
-    # Caching mechanism
-    # Better error handling
-    pass
+def inspect_sample_data(strain_data, sample_size=3):
+    """Inspect first few strain data to understand structure"""
+    st.subheader("🔍 Sample Data Inspector")
+    
+    with st.expander("Raw JSON Structure Analysis"):
+        count = 0
+        for bacdive_id, data in strain_data.items():
+            if count >= sample_size:
+                break
+                
+            st.write(f"**Strain ID: {bacdive_id}**")
+            
+            # Show main sections
+            st.write("Main sections:", list(data.keys()))
+            
+            # Show morphology details if exists
+            if 'morphology' in data:
+                st.write("Morphology keys:", list(data['morphology'].keys()))
+                st.json(data['morphology'])
+            
+            # Show physiology details if exists  
+            if 'physiology and metabolism' in data:
+                st.write("Physiology keys:", list(data['physiology and metabolism'].keys()))
+                # Only show first few items to avoid overwhelming
+                physio_data = data['physiology and metabolism']
+                sample_physio = {k: v for i, (k, v) in enumerate(physio_data.items()) if i < 5}
+                st.json(sample_physio)
+            
+            st.divider()
+            count += 1
 ```
 
-## Testing Strategy:
-1. Test dengan berbagai format nama bakteri
-2. Test dengan data partial/incomplete
-3. Test error scenarios (network issues, invalid data)
-4. Performance testing dengan large datasets
+### 5. Testing Script untuk Validasi
+```python
+# Buat file terpisah: test_parameter_extraction.py
+def test_parameter_extraction():
+    """Test parameter extraction dengan data sample"""
+    
+    # Load sample data from cache
+    cache = load_cache()
+    
+    for genus, data in cache.items():
+        print(f"\n=== TESTING GENUS: {genus} ===")
+        profiles = data.get('profiles', {})
+        
+        for bacdive_id, strain_data in list(profiles.items())[:2]:  # Test first 2 strains
+            print(f"\nTesting strain ID: {bacdive_id}")
+            
+            # Test current extraction
+            clean_profile = extract_clean_profile(strain_data)
+            
+            # Test fixed extraction
+            clean_profile_fixed = extract_clean_profile_fixed(strain_data, debug=True)
+            
+            # Compare results
+            print(f"\nComparison for {clean_profile.get('Nama Bakteri', 'Unknown')}:")
+            for param in ['Gram_stain', 'Motility', 'Catalase', 'Oxidase']:
+                old_val = clean_profile.get(param, 'N/A')
+                new_val = clean_profile_fixed.get(param, 'N/A')
+                status = "✅ SAME" if old_val == new_val else "🔄 DIFFERENT"
+                print(f"  {param}: {old_val} -> {new_val} ({status})")
 
-## Expected Outcomes:
-- Eliminasi hasil kosong dari BacDive searches
-- Peningkatan akurasi identifikasi bakteri
-- User experience yang lebih smooth
-- Error handling yang robust
-- Performance yang lebih baik
+if __name__ == "__main__":
+    test_parameter_extraction()
+```
+
+## Langkah Eksekusi
+1. **Jalankan debug mode** untuk melihat struktur JSON actual
+2. **Implementasikan fungsi perbaikan** extract_clean_profile_fixed()
+3. **Test dengan sample data** menggunakan script testing
+4. **Update mapping paths** berdasarkan struktur JSON yang ditemukan
+5. **Validasi hasil** dengan membandingkan output lama vs baru
+
+## Expected Output
+Setelah perbaikan, parameter seperti:
+- `Gram_stain: positive/negative` (bukan N/A)
+- `Motility: positive/negative` (bukan N/A)  
+- `Catalase: positive/negative` (bukan N/A)
+- dll.
+
+Akan menampilkan nilai actual dari BacDive, bukan "N/A".

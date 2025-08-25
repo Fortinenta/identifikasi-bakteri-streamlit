@@ -1,0 +1,3 @@
+Sample_Name,Genus,Gram_stain,Motility,Catalase,Oxidase,Urease,DNase,Gelatinase,Nitrate_reduction,Indole,MR,VP,Citrate,Ornithine_decarboxylase,Lysine_decarboxylase,H2S_production,Glucose,Lactose,Sucrose,Mannitol,Sorbitol,Xylose,Arabinose,Trehalose,Maltose,NaCl_tolerance,pH_range,Temperature_range
+Strep_iniae,Streptococcus,positive,negative,negative,negative,N/A,N/A,N/A,N/A,N/A,N/A,N/A,N/A,N/A,N/A,N/A,positive,N/A,N/A,positive,N/A,N/A,N/A,N/A,N/A,negative,N/A,N/A
+Aeromonas_salmonicida,Aeromonas,negative,negative,positive,positive,N/A,positive,positive,positive,negative,negative,negative,negative,negative,negative,negative,positive,negative,negative,negative,negative,negative,negative,negative,negative,N/A,N/A,N/A
