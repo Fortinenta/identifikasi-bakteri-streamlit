@@ -1,0 +1,120 @@
+{
+    "count": 1,
+    "next": null,
+    "previous": null,
+    "results": {
+        "590": {
+            "General": {
+                "@ref": 391,
+                "BacDive-ID": 590,
+                "DSM-Number": 1060,
+                "keywords": [
+                    "Bacteria",
+                    "mesophilic"
+                ],
+                "description": "Bacillus amyloliquefaciens KA 63 is a mesophilic bacterium of the family Bacillaceae.",
+                "NCBI tax id": {
+                    "NCBI tax id": 1390,
+                    "Matching level": "species"
+                },
+                "strain history": {
+                    "@ref": 391,
+                    "history": "<- OUT, KA 63 <- G. Terui"
+                },
+                "doi": "10.13145/bacdive590.20241212.9.2"
+            },
+            "Name and taxonomic classification": {
+                "LPSN": {
+                    "@ref": 20215,
+                    "description": "domain/bacteria",
+                    "keyword": "phylum/bacillota",
+                    "domain": "Bacteria",
+                    "phylum": "Bacillota",
+                    "class": "Bacilli",
+                    "order": "Caryophanales",
+                    "family": "Bacillaceae",
+                    "genus": "Bacillus",
+                    "species": "Bacillus amyloliquefaciens",
+                    "full scientific name": "<I>Bacillus</I> <I>amyloliquefaciens</I> (ex Fukomoto 1943) Priest et al. 1987"
+                },
+                "@ref": 391,
+                "domain": "Bacteria",
+                "phylum": "Firmicutes",
+                "class": "Bacilli",
+                "order": "Bacillales",
+                "family": "Bacillaceae",
+                "genus": "Bacillus",
+                "species": "Bacillus amyloliquefaciens",
+                "full scientific name": "Bacillus amyloliquefaciens (ex Fukumoto 1943) Priest et al. 1987 emend. Wang et al. 2008",
+                "strain designation": "KA 63",
+                "type strain": "no"
+            },
+            "Morphology": {},
+            "Culture and growth conditions": {
+                "culture medium": {
+                    "@ref": 391,
+                    "name": "NUTRIENT AGAR (DSMZ Medium 1)",
+                    "growth": "yes",
+                    "link": "https://mediadive.dsmz.de/medium/1",
+                    "composition": "Name: NUTRIENT AGAR (DSMZ Medium 1)\nComposition:\nAgar 15.0 g/l\nPeptone 5.0 g/l\nMeat extract 3.0 g/l\nDistilled water"
+                },
+                "culture temp": {
+                    "@ref": 391,
+                    "growth": "positive",
+                    "type": "growth",
+                    "temperature": "30"
+                }
+            },
+            "Physiology and metabolism": {
+                "compound production": [
+                    {
+                        "@ref": 391,
+                        "compound": "amylase"
+                    },
+                    {
+                        "@ref": 391,
+                        "compound": "inhibitors for glycoside hydrolases"
+                    }
+                ]
+            },
+            "Isolation, sampling and environmental information": {},
+            "Safety information": {
+                "risk assessment": {
+                    "@ref": 391,
+                    "biosafety level": "1",
+                    "biosafety level comment": "Risk group (German classification)"
+                }
+            },
+            "Sequence information": {},
+            "Genome-based predictions": {},
+            "External links": {
+                "@ref": 391,
+                "culture collection no.": "DSM 1060",
+                "straininfo link": {
+                    "@ref": 70267,
+                    "straininfo": 47308
+                }
+            },
+            "Reference": [
+                {
+                    "@id": 391,
+                    "authors": "Curators of the DSMZ",
+                    "catalogue": "Leibniz Institut DSMZ-Deutsche Sammlung von Mikroorganismen und Zellkulturen GmbH (DSM 1060)",
+                    "doi/url": "https://www.dsmz.de/collection/catalogue/details/culture/DSM-1060"
+                },
+                {
+                    "@id": 20215,
+                    "authors": "Parte, A.C., Sard\u00e0 Carbasse, J., Meier-Kolthoff, J.P., Reimer, L.C. and G\u00f6ker, M.",
+                    "title": "List of Prokaryotic names with Standing in Nomenclature (LPSN) moves to the DSMZ",
+                    "doi/url": "10.1099/ijsem.0.004332"
+                },
+                {
+                    "@id": 70267,
+                    "authors": "Reimer, L.C., Lissin, A.,Schober, I., Witte,J.F., Podstawka, A., L\u00fcken, H., Bunk, B.,Overmann, J.",
+                    "title": "StrainInfo: A central database for resolving microbial strain identifiers",
+                    "doi/url": "10.60712/SI-ID47308.1"
+                }
+            ]
+        }
+    }
+}

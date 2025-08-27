@@ -1,20 +1,12 @@
-File "C:\Python\identifikasi-bakteri-streamlit\app.py", line 191, in main
-    fetch_and_display_detailed_profiles(session, unique_genera)
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^
-File "C:\Python\identifikasi-bakteri-streamlit\app.py", line 107, in fetch_and_display_detailed_profiles
-    raw_profiles = fetch_and_cache_profiles_by_taxonomy(session, genus, status_placeholder, st)
-File "C:\Python\identifikasi-bakteri-streamlit\bacdive_mapper.py", line 225, in fetch_and_cache_profiles_by_taxonomy
-    st.expander(f"Raw JSON for BacDive ID: {bacdive_id}").json(strain_data)
-    ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-File "C:\Users\priom\anaconda3\Lib\site-packages\streamlit\runtime\metrics_util.py", line 444, in wrapped_func
-    result = non_optional_func(*args, **kwargs)
-File "C:\Users\priom\anaconda3\Lib\site-packages\streamlit\elements\layouts.py", line 601, in expander
-    return self.dg._block(block_proto=block_proto)
-           ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
-File "C:\Users\priom\anaconda3\Lib\site-packages\streamlit\delta_generator.py", line 522, in _block
-    _check_nested_element_violation(self, block_type, ancestor_block_types)
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-File "C:\Users\priom\anaconda3\Lib\site-packages\streamlit\delta_generator.py", line 602, in _check_nested_element_violation
-    raise StreamlitAPIException(
-        "Expanders may not be nested inside other expanders."
-    )
+Terjadi kesalahan saat memproses file: 'int' object has no attribute 'get'
+
+AttributeError: 'int' object has no attribute 'get'
+Traceback:
+File "C:\Python\identifikasi-bakteri-streamlit\app.py", line 260, in main
+    results = process_sample(session, user_input, log_container)
+File "C:\Python\identifikasi-bakteri-streamlit\app.py", line 70, in process_sample
+    score, details = calculate_weighted_similarity(user_input, bacdive_profile)
+                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+File "C:\Python\identifikasi-bakteri-streamlit\bacdive_mapper.py", line 215, in calculate_weighted_similarity
+    bval = bacdive_profile.get(param)
+           ^^^^^^^^^^^^^^^^^^^

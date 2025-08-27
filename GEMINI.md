@@ -1,239 +1,233 @@
-# Prompt untuk Debugging Ekstraksi Parameter BacDive
+# Perbaikan Aplikasi BacDive Streamlit
 
-## Masalah yang Dihadapi
-Aplikasi Streamlit untuk identifikasi bakteri menggunakan BacDive API berhasil mengambil data strain, namun **tidak dapat menampilkan detail parameter** seperti Gram_stain, Motility, Catalase, Oxidase, dll. Semua parameter menunjukkan nilai "N/A".
+## Masalah Yang Ditemukan:
 
-## Analisis Masalah
-1. **Struktur JSON BacDive tidak sesuai dengan mapping** yang ada di `PARAM_TO_BACDIVE_KEY`
-2. **Fungsi `extract_clean_profile()`** gagal mengekstrak nilai dari nested JSON
-3. **Path navigasi JSON** mungkin salah atau tidak lengkap
-4. **Normalisasi nilai** (positive/negative) tidak bekerja dengan baik
+### 1. **Struktur JSON Response BacDive Tidak Sesuai dengan Parser**
+Berdasarkan file JSON Anda (`bacdive_590.json`), struktur response BacDive berbeda dengan yang diharapkan kode:
 
-## Tugas yang Perlu Dilakukan
-
-### 1. Debug Struktur Data JSON
-```python
-# Tambahkan logging untuk melihat struktur actual JSON
-def debug_json_structure(strain_data, bacdive_id):
-    """Debug function to understand actual JSON structure"""
-    print(f"\n=== DEBUG JSON STRUCTURE FOR ID: {bacdive_id} ===")
-    
-    # Print main sections
-    for main_key in strain_data.keys():
-        print(f"Main section: {main_key}")
-        if isinstance(strain_data[main_key], dict):
-            for sub_key in strain_data[main_key].keys():
-                print(f"  - {sub_key}: {type(strain_data[main_key][sub_key])}")
-    
-    # Specific check for morphology and physiology sections
-    if 'morphology' in strain_data:
-        print(f"\nMORPHOLOGY KEYS: {list(strain_data['morphology'].keys())}")
-    
-    if 'physiology and metabolism' in strain_data:
-        print(f"PHYSIOLOGY KEYS: {list(strain_data['physiology and metabolism'].keys())}")
-    
-    return strain_data
+**Struktur Aktual:**
+```json
+{
+    "results": {
+        "590": {
+            "General": {...},
+            "Name and taxonomic classification": {...},
+            "Morphology": {},
+            "Culture and growth conditions": {...},
+            "Physiology and metabolism": {...}
+        }
+    }
+}
 ```
 
-### 2. Perbaiki Fungsi Extract Clean Profile
+**Yang Diharapkan Kode:**
+```json
+{
+    "general": {
+        "taxonomy": {...}
+    }
+}
+```
+
+### 2. **Mapping Path JSON Tidak Sesuai**
+Kode mencari data di path yang tidak ada dalam response aktual BacDive.
+
+## Solusi Perbaikan:
+
+### **File: `bacdive_mapper.py`**
+
+#### A. Perbaiki Fungsi `extract_bacdive_data()`:
+
 ```python
-def extract_clean_profile_fixed(strain_data, debug=False):
-    """Fixed version with better JSON navigation and debugging"""
+def extract_bacdive_data(strain_json, param_keys):
     profile = {}
     
-    if debug:
-        debug_json_structure(strain_data, strain_data.get('id', 'unknown'))
-    
-    # Extract taxonomy (this probably works)
+    # Perbaikan: Sesuaikan dengan struktur JSON BacDive yang sebenarnya
     try:
-        taxonomy = strain_data['general']['taxonomy']
-        species = taxonomy['species']
-        subspecies = taxonomy.get('subspecies', '')
-        profile['Nama Bakteri'] = f"{taxonomy['genus']} {species} {subspecies}".strip()
-    except KeyError:
+        # BacDive menggunakan "Name and taxonomic classification" bukan "general.taxonomy"
+        if "Name and taxonomic classification" in strain_json:
+            taxonomy = strain_json["Name and taxonomic classification"]
+            genus = taxonomy.get("genus", "Unknown")
+            species = taxonomy.get("species", "sp.")
+            strain_designation = taxonomy.get("strain designation", "")
+            
+            if strain_designation:
+                profile['Nama Bakteri'] = f"{genus} {species} {strain_designation}".strip()
+            else:
+                profile['Nama Bakteri'] = f"{genus} {species}".strip()
+        else:
+            profile['Nama Bakteri'] = "Unknown Species"
+    except (KeyError, TypeError) as e:
+        print(f"Error extracting taxonomy: {e}")
         profile['Nama Bakteri'] = "Unknown Species"
 
-    # Enhanced parameter extraction with multiple fallback strategies
-    for param in get_param_keys():
-        profile[param] = extract_parameter_value(strain_data, param, debug)
+    for param in param_keys:
+        profile[param] = extract_parameter_value(strain_json, param)
     
     return profile
+```
 
-def extract_parameter_value(strain_data, param, debug=False):
-    """Enhanced parameter extraction with multiple strategies"""
-    if param not in PARAM_TO_BACDIVE_KEY:
-        return 'N/A'
+#### B. Perbaiki `PARAM_TO_BACDIVE_KEY` Mapping:
+
+```python
+PARAM_TO_BACDIVE_KEY = {
+    # Sesuaikan dengan struktur BacDive yang sebenarnya
+    'Gram_stain': [
+        ["Morphology", "cell shape"], 
+        ["Name and taxonomic classification", "phylum"]  # Bacillota = Gram positive
+    ],
+    'Motility': [["Morphology", "motility"]],
+    'Catalase': [
+        ["Physiology and metabolism", "enzymes", "catalase"], 
+        ["Physiology and metabolism", "catalase"]
+    ],
+    'Oxidase': [
+        ["Physiology and metabolism", "enzymes", "oxidase"], 
+        ["Physiology and metabolism", "oxidase"]
+    ],
+    'Temperature_range': [
+        ["Culture and growth conditions", "culture temp"],
+        ["Culture and growth conditions", "temperature"]
+    ],
+    # Tambahkan mapping lainnya sesuai struktur BacDive
+    'Glucose': [
+        ["Physiology and metabolism", "metabolite utilization", "glucose"],
+        ["Physiology and metabolism", "carbon source utilization", "glucose"]
+    ],
+    # ... mapping lainnya
+}
+```
+
+#### C. Perbaiki Fungsi `extract_parameter_value()`:
+
+```python
+def extract_parameter_value(strain_json, param):
+    paths = PARAM_TO_BACDIVE_KEY.get(param, [])
     
-    paths = PARAM_TO_BACDIVE_KEY[param]
-    found_value = None
-    
-    for path_index, keys in enumerate(paths):
+    # Khusus untuk Gram stain, deteksi dari phylum
+    if param == 'Gram_stain':
         try:
-            value = strain_data
-            navigation_log = f"Path {path_index + 1}: "
+            phylum = strain_json.get("Name and taxonomic classification", {}).get("phylum", "")
+            if phylum.lower() in ['firmicutes', 'bacillota']:
+                return 'positive'
+            elif phylum.lower() in ['proteobacteria']:
+                return 'negative'
+        except:
+            pass
+    
+    # Khusus untuk temperature dari culture conditions
+    if param == 'Temperature_range':
+        try:
+            culture_temp = strain_json.get("Culture and growth conditions", {}).get("culture temp", {})
+            if isinstance(culture_temp, dict):
+                temp = culture_temp.get("temperature")
+                if temp:
+                    return temp
+        except:
+            pass
+    
+    # Coba semua path yang mungkin
+    for path in paths:
+        current = strain_json
+        try:
+            for key in path:
+                current = current[key]
             
-            for key_index, key in enumerate(keys):
-                navigation_log += f"[{key}]"
-                
-                if isinstance(value, list):
-                    # Strategy 1: Find dict in list with key
-                    temp_value = None
-                    for item in value:
-                        if isinstance(item, dict) and key in item:
-                            temp_value = item[key]
-                            break
-                    value = temp_value
-                elif isinstance(value, dict):
-                    value = value.get(key)
-                else:
-                    value = None
-                    break
-                
-                if value is None:
-                    break
-            
-            if debug and value is not None:
-                print(f"  {param} - {navigation_log} -> Found: {value}")
-            
-            if value is not None:
-                found_value = normalize_bacdive_value(value)
-                break
-                
-        except (KeyError, TypeError, AttributeError) as e:
-            if debug:
-                print(f"  {param} - Path {path_index + 1} failed: {e}")
+            if current and current not in (None, "", [], {}):
+                # Jika dict, ambil nilai yang relevan
+                if isinstance(current, dict):
+                    return current.get('growth', current.get('result', current.get('activity', str(current))))
+                return current
+        except (KeyError, TypeError):
             continue
     
-    return found_value if found_value is not None else 'N/A'
+    return 'N/A' if param not in {'pH_range', 'Temperature_range', 'NaCl_tolerance'} else None
+```
 
-def normalize_bacdive_value(value):
-    """Normalize BacDive values to standard format"""
-    if isinstance(value, dict):
-        # Check common BacDive dict structures
-        for possible_key in ['ability', 'activity', 'result', 'value', 'reaction']:
-            if possible_key in value:
-                return normalize_simple_value(value[possible_key])
+### **File: `app.py`**
+
+#### D. Tambahkan Debug Logging:
+
+Tambahkan setelah line yang mengambil response JSON:
+
+```python
+def fetch_and_cache_profiles_by_taxonomy(session, genus, status_placeholder, log_container):
+    # ... kode existing ...
+    
+    for i, bid in enumerate(strain_ids, start=1):
+        status_placeholder.text(f"☁️ Mengambil & memproses profil {i}/{total_ids} (ID: {bid})…")
+        try:
+            r = session.get(f"https://api.bacdive.dsmz.de/fetch/{bid}")
+            r.raise_for_status()
+            raw = r.json()
+            
+            # DEBUG: Log struktur JSON untuk debugging
+            if i == 1:
+                log_container.info(f"Sample JSON structure keys: {list(raw.keys())}")
+                if 'Name and taxonomic classification' in raw:
+                    log_container.info(f"Taxonomy keys: {list(raw['Name and taxonomic classification'].keys())}")
+                log_container.json(raw)
+            
+            clean = extract_bacdive_data(raw, param_keys)
+            log_container.info(f"Extracted profile for ID {bid}: {clean.get('Nama Bakteri', 'Unknown')}")
+            
+            if clean.get("Nama Bakteri", "N/A") != "Unknown Species":
+                profiles[str(bid)] = clean
+        except Exception as e:
+            log_container.error(f"Error processing ID {bid}: {str(e)}")
         
-        # If no standard key found, return the dict as string representation
-        return str(value)
-    else:
-        return normalize_simple_value(value)
-
-def normalize_simple_value(value):
-    """Normalize simple values to positive/negative"""
-    if value is None:
-        return 'N/A'
-    
-    str_value = str(value).lower().strip()
-    
-    # Positive indicators
-    positive_indicators = ['+', 'positive', 'yes', 'ya', 'acid', 'positif', 
-                          'acid production', 'fermentation', 'present', 'detected']
-    
-    # Negative indicators  
-    negative_indicators = ['-', 'negative', 'no', 'tidak', 'negatif', 
-                          'absent', 'not detected', 'none']
-    
-    if any(indicator in str_value for indicator in positive_indicators):
-        return 'positive'
-    elif any(indicator in str_value for indicator in negative_indicators):
-        return 'negative'
-    else:
-        return str_value
+        time.sleep(0.35)
 ```
 
-### 3. Tambahkan Mode Debug di Main App
+## Langkah-Langkah Testing:
+
+### 1. **Test dengan Data JSON Anda**
+Buat fungsi test sederhana:
+
 ```python
-# Di fungsi main(), tambahkan checkbox debug
-debug_mode = st.sidebar.checkbox("🐛 Debug Mode", help="Tampilkan struktur JSON untuk debugging")
-
-# Modifikasi pemanggilan extract_clean_profile
-if debug_mode:
-    clean_profile = extract_clean_profile_fixed(bacdive_profile, debug=True)
-else:
-    clean_profile = extract_clean_profile(bacdive_profile)
+def test_json_parsing():
+    # Gunakan data JSON Anda sebagai test
+    test_json = {
+        "General": {...},  # isi dengan data dari bacdive_590.json
+        "Name and taxonomic classification": {...},
+        # dst
+    }
+    
+    param_keys = get_param_keys()
+    result = extract_bacdive_data(test_json, param_keys)
+    print("Test result:", result)
 ```
 
-### 4. Tambahkan Sample Data Inspector
+### 2. **Verifikasi API Response**
+Tambahkan logging untuk melihat struktur response yang sebenarnya:
+
 ```python
-def inspect_sample_data(strain_data, sample_size=3):
-    """Inspect first few strain data to understand structure"""
-    st.subheader("🔍 Sample Data Inspector")
-    
-    with st.expander("Raw JSON Structure Analysis"):
-        count = 0
-        for bacdive_id, data in strain_data.items():
-            if count >= sample_size:
-                break
-                
-            st.write(f"**Strain ID: {bacdive_id}**")
-            
-            # Show main sections
-            st.write("Main sections:", list(data.keys()))
-            
-            # Show morphology details if exists
-            if 'morphology' in data:
-                st.write("Morphology keys:", list(data['morphology'].keys()))
-                st.json(data['morphology'])
-            
-            # Show physiology details if exists  
-            if 'physiology and metabolism' in data:
-                st.write("Physiology keys:", list(data['physiology and metabolism'].keys()))
-                # Only show first few items to avoid overwhelming
-                physio_data = data['physiology and metabolism']
-                sample_physio = {k: v for i, (k, v) in enumerate(physio_data.items()) if i < 5}
-                st.json(sample_physio)
-            
-            st.divider()
-            count += 1
+# Di dalam fetch_and_cache_profiles_by_taxonomy
+print(f"Raw API response keys: {list(raw.keys())}")
+print(f"First level structure: {raw}")
 ```
 
-### 5. Testing Script untuk Validasi
+### 3. **Check Authentication**
+Pastikan autentikasi berhasil dengan menambahkan logging:
+
 ```python
-# Buat file terpisah: test_parameter_extraction.py
-def test_parameter_extraction():
-    """Test parameter extraction dengan data sample"""
-    
-    # Load sample data from cache
-    cache = load_cache()
-    
-    for genus, data in cache.items():
-        print(f"\n=== TESTING GENUS: {genus} ===")
-        profiles = data.get('profiles', {})
-        
-        for bacdive_id, strain_data in list(profiles.items())[:2]:  # Test first 2 strains
-            print(f"\nTesting strain ID: {bacdive_id}")
-            
-            # Test current extraction
-            clean_profile = extract_clean_profile(strain_data)
-            
-            # Test fixed extraction
-            clean_profile_fixed = extract_clean_profile_fixed(strain_data, debug=True)
-            
-            # Compare results
-            print(f"\nComparison for {clean_profile.get('Nama Bakteri', 'Unknown')}:")
-            for param in ['Gram_stain', 'Motility', 'Catalase', 'Oxidase']:
-                old_val = clean_profile.get(param, 'N/A')
-                new_val = clean_profile_fixed.get(param, 'N/A')
-                status = "✅ SAME" if old_val == new_val else "🔄 DIFFERENT"
-                print(f"  {param}: {old_val} -> {new_val} ({status})")
-
-if __name__ == "__main__":
-    test_parameter_extraction()
+# Di auth.py, tambahkan setelah mendapat token
+if access_token:
+    print(f"✅ Authentication successful. Token starts with: {access_token[:20]}...")
 ```
 
-## Langkah Eksekusi
-1. **Jalankan debug mode** untuk melihat struktur JSON actual
-2. **Implementasikan fungsi perbaikan** extract_clean_profile_fixed()
-3. **Test dengan sample data** menggunakan script testing
-4. **Update mapping paths** berdasarkan struktur JSON yang ditemukan
-5. **Validasi hasil** dengan membandingkan output lama vs baru
+## File yang Perlu Dimodifikasi:
 
-## Expected Output
-Setelah perbaikan, parameter seperti:
-- `Gram_stain: positive/negative` (bukan N/A)
-- `Motility: positive/negative` (bukan N/A)  
-- `Catalase: positive/negative` (bukan N/A)
-- dll.
+1. **`bacdive_mapper.py`** - Fungsi parsing utama
+2. **`app.py`** - Tambah debug logging
+3. **Test dengan file JSON sampel Anda** - Untuk validasi parsing
 
-Akan menampilkan nilai actual dari BacDive, bukan "N/A".
+## Langkah Implementasi:
+
+1. **Backup file existing**
+2. **Implementasi perbaikan satu per satu**
+3. **Test dengan satu genus dulu** (misal: Bacillus)
+4. **Cek log output** untuk memastikan parsing berhasil
+5. **Gradually expand** ke genus lainnya
+
+Dengan perbaikan ini, aplikasi Anda seharusnya bisa mengambil dan memproses data dari BacDive API dengan benar.

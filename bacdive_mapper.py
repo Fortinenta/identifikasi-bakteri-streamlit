@@ -9,152 +9,145 @@ import requests
 CACHE_FILE = "bacdive_cache.json"
 CACHE_DURATION_SECONDS = 24 * 60 * 60  # Cache berlaku selama 24 jam
 
-# --- 1. MAPPING & WEIGHTS ---
+# --- 1. MAPPING & WEIGHTS YANG DIPERBAIKI ---
 COLUMN_ALIASES = {
-    "Motilitas": "Motility",
-    "Pewarnaan Gram": "Gram_stain",
-    "Gram": "Gram_stain",
-    "Katalase": "Catalase",
-    "Oksidase": "Oxidase",
-    "Indol": "Indole",
-    "Urease": "Urease",
-    "Dnase": "DNase",
-    "Gelatin": "Gelatinase",
-    "Nitrate Reduction": "Nitrate_reduction",
-    "H2S": "H2S_production",
-    "Glukosa": "Glucose",
-    "Laktosa": "Lactose",
-    "Maltosa": "Maltose",
-    "Sukrosa": "Sucrose",
-    "Manitol": "Mannitol",
-    "Sorbitol": "Sorbitol",
-    "Xilosa": "Xylose",
-    "Arabinosa": "Arabinose",
-    "Trehalosa": "Trehalose",
+    "Motilitas": "Motility", "Pewarnaan Gram": "Gram_stain", "Gram": "Gram_stain",
+    "Katalase": "Catalase", "Oksidase": "Oxidase", "Indol": "Indole", "Urease": "Urease",
+    "Dnase": "DNase", "Gelatin": "Gelatinase", "Nitrate Reduction": "Nitrate_reduction",
+    "H2S": "H2S_production", "Glukosa": "Glucose", "Laktosa": "Lactose", "Maltosa": "Maltose",
+    "Sukrosa": "Sucrose", "Manitol": "Mannitol", "Sorbitol": "Sorbitol", "Xilosa": "Xylose",
+    "Arabinosa": "Arabinose", "Trehalosa": "Trehalose",
 }
 
+# PERBAIKAN: Mapping yang lebih akurat sesuai struktur BacDive
 PARAM_TO_BACDIVE_KEY = {
     'Gram_stain': [
-        ["morphology", "gram stain"],
-        ["morphology", "Gram stain"],
-        ["morphology", "Gram reaction"]
+        ["Name and taxonomic classification", "phylum"],  # Inference dari phylum
+        ["Morphology", "gram stain"], 
+        ["Morphology", "Gram stain"],
+        ["Morphology", "cell wall and cell membranes", "gram stain"]
     ],
-    'Motility': [["morphology", "motility"]],
+    'Motility': [
+        ["Morphology", "motility"],
+        ["Morphology", "Motility"],
+        ["Morphology", "cell motility"]
+    ],
     'Catalase': [
-        ["physiology and metabolism", "catalase"],
-        ["physiology and metabolism", "enzymes", "catalase"]
+        ["Physiology and metabolism", "enzymes", "catalase"], 
+        ["Physiology and metabolism", "catalase"],
+        ["Physiology and metabolism", "enzyme activities", "catalase"]
     ],
     'Oxidase': [
-        ["physiology and metabolism", "oxidase"],
-        ["physiology and metabolism", "enzymes", "oxidase"]
+        ["Physiology and metabolism", "enzymes", "oxidase"], 
+        ["Physiology and metabolism", "oxidase"],
+        ["Physiology and metabolism", "enzyme activities", "oxidase"]
     ],
     'Urease': [
-        ["physiology and metabolism", "urease"],
-        ["physiology and metabolism", "enzymes", "urease"]
+        ["Physiology and metabolism", "enzymes", "urease"], 
+        ["Physiology and metabolism", "urease"],
+        ["Physiology and metabolism", "enzyme activities", "urease"]
     ],
     'DNase': [
-        ["physiology and metabolism", "DNase"],
-        ["physiology and metabolism", "enzymes", "DNase"]
+        ["Physiology and metabolism", "enzymes", "DNase"], 
+        ["Physiology and metabolism", "DNase"],
+        ["Physiology and metabolism", "enzyme activities", "DNase"]
     ],
     'Gelatinase': [
-        ["physiology and metabolism", "gelatinase"],
-        ["physiology and metabolism", "enzymes", "gelatinase"]
+        ["Physiology and metabolism", "enzymes", "gelatinase"], 
+        ["Physiology and metabolism", "gelatinase"],
+        ["Physiology and metabolism", "enzyme activities", "gelatinase"]
     ],
-    'Nitrate_reduction': [["physiology and metabolism", "nitrate reduction"]],
-    'Indole': [["physiology and metabolism", "indole test"]],
-    'MR': [["physiology and metabolism", "methyl red test"]],
-    'VP': [["physiology and metabolism", "voges proskauer test"]],
-    'Citrate': [["physiology and metabolism", "citrate utilization"]],
-    'Ornithine_decarboxylase': [["physiology and metabolism", "ornithine decarboxylase"]],
-    'Lysine_decarboxylase': [["physiology and metabolism", "lysine decarboxylase"]],
-    'Arginine_dihydrolase': [["physiology and metabolism", "arginine dihydrolase"]],
-    'H2S_production': [["physiology and metabolism", "H2S production"]],
+    'Nitrate_reduction': [
+        ["Physiology and metabolism", "nitrate reduction"],
+        ["Physiology and metabolism", "Nitrate reduction"],
+        ["Physiology and metabolism", "metabolic test results", "nitrate reduction"]
+    ],
+    'Indole': [
+        ["Physiology and metabolism", "indole test"],
+        ["Physiology and metabolism", "Indole"],
+        ["Physiology and metabolism", "metabolic test results", "indole"]
+    ],
+    'MR': [
+        ["Physiology and metabolism", "methyl red test"],
+        ["Physiology and metabolism", "Methyl red"],
+        ["Physiology and metabolism", "metabolic test results", "methyl red"]
+    ],
+    'VP': [
+        ["Physiology and metabolism", "voges proskauer test"],
+        ["Physiology and metabolism", "Voges Proskauer"],
+        ["Physiology and metabolism", "metabolic test results", "voges proskauer"]
+    ],
+    'Citrate': [
+        ["Physiology and metabolism", "citrate utilization"],
+        ["Physiology and metabolism", "Citrate"],
+        ["Physiology and metabolism", "carbon sources", "citrate"]
+    ],
+    'H2S_production': [
+        ["Physiology and metabolism", "H2S production"],
+        ["Physiology and metabolism", "hydrogen sulfide"],
+        ["Physiology and metabolism", "metabolic test results", "H2S"]
+    ],
     'Glucose': [
-        ["physiology and metabolism", "glucose utilization"],
-        ["physiology and metabolism", "metabolite utilization", "glucose"]
+        ["Physiology and metabolism", "carbon sources", "glucose"], 
+        ["Physiology and metabolism", "metabolite utilization", "glucose"],
+        ["Physiology and metabolism", "Glucose"]
     ],
     'Lactose': [
-        ["physiology and metabolism", "lactose utilization"],
-        ["physiology and metabolism", "metabolite utilization", "lactose"]
+        ["Physiology and metabolism", "carbon sources", "lactose"], 
+        ["Physiology and metabolism", "metabolite utilization", "lactose"],
+        ["Physiology and metabolism", "Lactose"]
     ],
     'Sucrose': [
-        ["physiology and metabolism", "sucrose utilization"],
-        ["physiology and metabolism", "metabolite utilization", "sucrose"]
+        ["Physiology and metabolism", "carbon sources", "sucrose"], 
+        ["Physiology and metabolism", "metabolite utilization", "sucrose"],
+        ["Physiology and metabolism", "Sucrose"]
     ],
     'Mannitol': [
-        ["physiology and metabolism", "mannitol utilization"],
-        ["physiology and metabolism", "metabolite utilization", "mannitol"]
+        ["Physiology and metabolism", "carbon sources", "mannitol"], 
+        ["Physiology and metabolism", "metabolite utilization", "mannitol"]
     ],
     'Sorbitol': [
-        ["physiology and metabolism", "sorbitol utilization"],
-        ["physiology and metabolism", "metabolite utilization", "sorbitol"]
+        ["Physiology and metabolism", "carbon sources", "sorbitol"], 
+        ["Physiology and metabolism", "metabolite utilization", "sorbitol"]
     ],
-    'Xylose': [
-        ["physiology and metabolism", "xylose utilization"],
-        ["physiology and metabolism", "metabolite utilization", "xylose"]
+    'Temperature_range': [
+        ["Culture and growth conditions", "culture temp"],
+        ["Culture and growth conditions", "temperature range"],
+        ["Culture and growth conditions", "Temperature"]
     ],
-    'Arabinose': [
-        ["physiology and metabolism", "arabinose utilization"],
-        ["physiology and metabolism", "metabolite utilization", "arabinose"]
+    'pH_range': [
+        ["Culture and growth conditions", "pH"],
+        ["Culture and growth conditions", "pH range"]
     ],
-    'Trehalose': [
-        ["physiology and metabolism", "trehalose utilization"],
-        ["physiology and metabolism", "metabolite utilization", "trehalose"]
-    ],
-    'Inositol': [
-        ["physiology and metabolism", "inositol utilization"],
-        ["physiology and metabolism", "metabolite utilization", "inositol"]
-    ],
-    'Maltose': [
-        ["physiology and metabolism", "maltose utilization"],
-        ["physiology and metabolism", "metabolite utilization", "maltose"]
-    ],
-    'Raffinose': [
-        ["physiology and metabolism", "raffinose utilization"],
-        ["physiology and metabolism", "metabolite utilization", "raffinose"]
-    ],
-    'Fructose': [
-        ["physiology and metabolism", "fructose utilization"],
-        ["physiology and metabolism", "metabolite utilization", "fructose"]
-    ],
-    'NaCl_tolerance': [["culture and growth conditions", "sodium chloride (NaCl) growth tolerance"]],
-    'Temperature_range': [["culture and growth conditions", "temperature range"]],
-    'pH_range': [["culture and growth conditions", "pH range"]],
+    'NaCl_tolerance': [
+        ["Culture and growth conditions", "NaCl"],
+        ["Culture and growth conditions", "sodium chloride"]
+    ]
 }
 
 WEIGHTS = {
-    'Gram_stain': 3, 'Motility': 3, 'Catalase': 3, 'Oxidase': 3, 'Urease': 3, 
-    'DNase': 3, 'Gelatinase': 3,
-    'Indole': 2, 'MR': 2, 'VP': 2, 'Citrate': 2, 'Lysine_decarboxylase': 2, 
-    'Ornithine_decarboxylase': 2, 'Arginine_dihydrolase': 2, 'Nitrate_reduction': 2, 
-    'H2S_production': 2,
-    'Glucose': 1, 'Lactose': 1, 'Sucrose': 1, 'Mannitol': 1, 'Sorbitol': 1,
-    'Xylose': 1, 'Arabinose': 1, 'Trehalose': 1, 'Inositol': 1, 'Maltose': 1,
-    'Raffinose': 1, 'Fructose': 1,
+    'Gram_stain': 3, 'Motility': 3, 'Catalase': 3, 'Oxidase': 3, 'Urease': 3, 'DNase': 3, 'Gelatinase': 3,
+    'Indole': 2, 'MR': 2, 'VP': 2, 'Citrate': 2, 'Lysine_decarboxylase': 2, 'Ornithine_decarboxylase': 2, 
+    'Arginine_dihydrolase': 2, 'Nitrate_reduction': 2, 'H2S_production': 2,
+    'Glucose': 1, 'Lactose': 1, 'Sucrose': 1, 'Mannitol': 1, 'Sorbitol': 1, 'Xylose': 1, 'Arabinose': 1, 
+    'Trehalose': 1, 'Inositol': 1, 'Maltose': 1, 'Raffinose': 1, 'Fructose': 1,
     'NaCl_tolerance': 1, 'Temperature_range': 1, 'pH_range': 1
 }
 
+# --- 2. Fungsi Utilitas & Normalisasi ---
 def get_param_keys():
     return list(PARAM_TO_BACDIVE_KEY.keys())
 
 def normalize_columns(df):
-    new_columns = []
-    for col in df.columns:
-        col_strip = col.strip()
-        if col_strip in COLUMN_ALIASES:
-            new_columns.append(COLUMN_ALIASES[col_strip])
-        else:
-            new_columns.append(col_strip)
-    df.columns = new_columns
+    df.columns = [COLUMN_ALIASES.get(col.strip(), col.strip()) for col in df.columns]
     return df
 
-# --- 2. FUNGSI-FUNGSI CACHE ---
 def load_cache():
     if os.path.exists(CACHE_FILE):
         with open(CACHE_FILE, 'r') as f:
-            try:
+            try: 
                 return json.load(f)
-            except json.JSONDecodeError:
+            except json.JSONDecodeError: 
                 return {}
     return {}
 
@@ -162,185 +155,400 @@ def save_cache(cache_data):
     with open(CACHE_FILE, 'w') as f:
         json.dump(cache_data, f, indent=4)
 
-# --- 3. FUNGSI INTERAKSI API & LOGIKA INTI ---
-def fetch_and_cache_profiles_by_taxonomy(session, genus, status_placeholder, log_container):
-    """Mengambil PROFIL LENGKAP berdasarkan genus menggunakan session requests."""
-    cache = load_cache()
-    current_time = time.time()
+def _normalize_simple_value(x):
+    if x is None: 
+        return 'nd'
+    s = str(x).strip().lower()
+    if s in {'+', 'pos', 'positive', 'acid', 'ferment', 'present', 'detected', 'true', 'yes', 'ya'}: 
+        return 'positive'
+    if s in {'-', 'neg', 'negative', 'absent', 'not detected', 'false', 'no', 'tidak'}: 
+        return 'negative'
+    if 'variable' in s or 'v+' in s: 
+        return 'variable'
+    return s or 'nd'
 
-    if genus in cache and (current_time - cache[genus]['timestamp']) < CACHE_DURATION_SECONDS:
-        status_placeholder.text(f"✔️ Cache ditemukan untuk genus {genus}. Menggunakan data profil dari cache.")
-        log_container.info(f"Menggunakan {len(cache[genus]['profiles'])} profil dari cache untuk genus {genus}.")
-        time.sleep(0.5)
-        return cache[genus]['profiles']
+def _parse_range(val):
+    if val is None: 
+        return None
+    if isinstance(val, (int, float)): 
+        return (float(val), float(val))
+    if isinstance(val, dict):
+        mi, ma = val.get('min'), val.get('max')
+        return (float(mi), float(ma)) if mi is not None and ma is not None else None
+    if isinstance(val, (list, tuple)) and len(val) == 2:
+        try: 
+            return (float(val[0]), float(val[1]))
+        except (ValueError, TypeError): 
+            return None
+    s = str(val)
+    if '-' in s:
+        try:
+            a, b = s.replace('–', '-').split('-', 1)
+            return (float(a.strip()), float(b.strip()))
+        except (ValueError, TypeError): 
+            return None
+    try: 
+        return (float(s), float(s))
+    except (ValueError, TypeError): 
+        return None
 
-    status_placeholder.text(f"☁️ Mencari ID strain untuk genus {genus} via API BacDive...")
-    search_url = f"https://api.bacdive.dsmz.de/taxon/{genus}"
-    log_container.info(f"API Search URL: {search_url}")
+def extract_parameter_value(strain_json, param):
+    """
+    PERBAIKAN: Extract parameter value dengan debugging yang lebih baik
+    """
+    paths = PARAM_TO_BACDIVE_KEY.get(param, [])
     
-    try:
-        response = session.get(search_url)
-        response.raise_for_status()
-        search_results = response.json()
-        
-        # Extract strain_ids directly from the 'results' list
-        strain_ids = search_results.get('results', [])
-
-        if not strain_ids: # Check if the list of IDs is empty
-            status_placeholder.text(f"Tidak ada strain ditemukan untuk genus {genus}.")
-            return {}
-
-        total_ids = len(strain_ids)
-        
-        # --- Debugging: Fetch and display one single strain JSON ---
-        if len(strain_ids) > 0: # Changed condition
-            # print(f"strain_ids content: {strain_ids}") # REMOVED FOR DEBUGGING
-            first_bacdive_id = strain_ids[0]
-            log_container.info(f"Mengambil detail untuk satu ID strain ({first_bacdive_id}) untuk debugging...")
-            single_retrieve_url = f"https://api.bacdive.dsmz.de/fetch/{first_bacdive_id}"
-            try:
-                single_strain_response = session.get(single_retrieve_url)
-                single_strain_response.raise_for_status()
-                single_strain_data = single_strain_response.json()
-                log_container.json(single_strain_data) # Changed to .json() directly
-            except requests.exceptions.RequestException as re:
-                log_container.error(f"Gagal mengambil data untuk ID strain tunggal {first_bacdive_id}: {re}")
-            except ValueError:
-                log_container.error(f"Gagal decode JSON untuk ID strain tunggal {first_bacdive_id}. Response: {single_strain_response.text}")
-        else: # Added else block for clarity
-            log_container.error(f"strain_ids is empty for genus {genus}. Cannot fetch single strain for debugging.")
-        # --- End Debugging ---
-
-        log_container.info(f"Ditemukan {total_ids} ID strain untuk genus {genus}. Memulai pengambilan profil lengkap...")
-
-        ids_to_fetch = ";".join(map(str, strain_ids))
-        retrieve_url = f"https://api.bacdive.dsmz.de/fetch/{ids_to_fetch}"
-        log_container.info(f"API Retrieve URL: {retrieve_url}")
-        
-        retrieve_response = session.get(retrieve_url)
-        retrieve_response.raise_for_status()
-        profiles = retrieve_response.json()
-
-        for bacdive_id, strain_data in profiles.items():
-            log_container.expander(f"Raw JSON for BacDive ID: {bacdive_id}").json(strain_data)
-
-        cache[genus] = {
-            'timestamp': current_time,
-            'profiles': profiles
-        }
-        save_cache(cache)
-        
-        return profiles
-
-    except requests.exceptions.HTTPError as http_err:
-        status_placeholder.error(f"HTTP error saat mencari data untuk {genus}: {http_err}")
-        if http_err.response:
-            log_container.error(f"Response body: {http_err.response.text}")
-        return {}
-    except requests.exceptions.RequestException as e:
-        status_placeholder.error(f"Terjadi error saat mengambil data untuk {genus}: {e}")
-        return {}
-    except ValueError:
-        status_placeholder.error(f"Gagal decode JSON.")
-        if 'response' in locals() and response:
-             log_container.error(f"Search Response body: {response.text}")
-        if 'retrieve_response' in locals() and retrieve_response:
-             log_container.error(f"Retrieve Response body: {retrieve_response.text}")
-        return {}
-
-
-def calculate_weighted_similarity(user_input, bacdive_profile):
-    score = 0
-    max_possible_score = 0
-    comparison_details = []
+    # KHUSUS: Gram stain detection dari phylum
+    if param == 'Gram_stain':
+        try:
+            taxonomy = strain_json.get("Name and taxonomic classification", {})
+            phylum = taxonomy.get("phylum", "")
+            if phylum:
+                phylum_lower = phylum.lower()
+                if any(term in phylum_lower for term in ['firmicutes', 'bacillota', 'actinobacteria', 'actinomycetes']):
+                    return 'positive'
+                elif any(term in phylum_lower for term in ['proteobacteria', 'bacteroidetes']):
+                    return 'negative'
+        except Exception:
+            pass
     
-    clean_bacdive_profile = extract_clean_profile(bacdive_profile)
-
-    normalized_user_input = {}
-    for param, value in user_input.items():
-        if pd.notna(value) and str(value).strip() != '':
-            norm_value = str(value).lower().strip()
-            if norm_value in ['+', 'positive', 'ya', 'yes', 'acid', 'positif', 'acid production', 'fermentation']:
-                normalized_user_input[param] = 'positive'
-            elif norm_value in ['-', 'negative', 'tidak', 'no', 'negatif', 'absent', 'not detected']:
-                normalized_user_input[param] = 'negative'
+    # KHUSUS: Temperature dari culture conditions
+    if param == 'Temperature_range':
+        try:
+            culture_conditions = strain_json.get("Culture and growth conditions", {})
+            if culture_conditions:
+                temp_data = culture_conditions.get("culture temp") or culture_conditions.get("temperature")
+                if temp_data:
+                    return _parse_range(temp_data)
+        except Exception:
+            pass
+    
+    # Coba semua path yang mungkin
+    for path in paths:
+        current = strain_json
+        try:
+            for key in path:
+                if isinstance(current, dict) and key in current:
+                    current = current[key]
+                else:
+                    # Key tidak ditemukan, coba path berikutnya
+                    break
             else:
-                normalized_user_input[param] = norm_value
-
-    for param, user_val in normalized_user_input.items():
-        if param not in WEIGHTS:
-            if param not in ["Sample_Name", "Genus"]:
-                print(f"[INFO] Kolom '{param}' tidak ada di WEIGHTS, dilewati.")
+                # Semua key dalam path ditemukan
+                if current and current not in (None, "", [], {}):
+                    # Range parameters
+                    if param in {'pH_range', 'Temperature_range', 'NaCl_tolerance'}:
+                        return _parse_range(current)
+                    
+                    # Jika list, ambil item pertama yang valid
+                    if isinstance(current, list) and current:
+                        current = current[0]
+                    
+                    # Jika dict, cari nilai yang relevan
+                    if isinstance(current, dict):
+                        # Prioritas key untuk hasil test
+                        priority_keys = ['result', 'test result', 'activity', 'growth', 'ability', 'utilization', 'production']
+                        for result_key in priority_keys:
+                            if result_key in current and current[result_key] is not None:
+                                return _normalize_simple_value(current[result_key])
+                        
+                        # Cari key lain yang bukan metadata
+                        for k, v in current.items():
+                            if k.lower() not in ['reference', 'method', 'note', 'id'] and v is not None:
+                                return _normalize_simple_value(v)
+                    
+                    return _normalize_simple_value(current)
+                
+        except (KeyError, TypeError, AttributeError):
             continue
-        weight = WEIGHTS.get(param, 1)
-        max_possible_score += weight
-        
-        bacdive_val = clean_bacdive_profile.get(param, 'N/A')
-        
-        is_match = (user_val == str(bacdive_val).lower())
-        if is_match:
-            score += weight
-        comparison_details.append({
-            "Parameter": param,
-            "Input": user_input.get(param, 'N/A'),
-            "BacDive Match": bacdive_val,
-            "Bobot": weight,
-            "Cocok": "✅" if is_match else "❌"
-        })
-    if max_possible_score == 0:
-        return 0, []
-    similarity_percentage = (score / max_possible_score) * 100
-    return similarity_percentage, comparison_details
+    
+    return 'N/A' if param not in {'pH_range', 'Temperature_range', 'NaCl_tolerance'} else None
 
-def extract_clean_profile(strain_data):
+def extract_bacdive_data(strain_json, param_keys):
+    """
+    PERBAIKAN: Extract data dengan debugging yang lebih baik
+    """
     profile = {}
+    
     try:
-        taxonomy = strain_data['general']['taxonomy']
-        species = taxonomy['species']
-        subspecies = taxonomy.get('subspecies', '')
-        profile['Nama Bakteri'] = f"{taxonomy['genus']} {species} {subspecies}".strip()
-    except KeyError:
+        # Extract taxonomy information
+        if "Name and taxonomic classification" in strain_json:
+            taxonomy = strain_json["Name and taxonomic classification"]
+            genus = taxonomy.get("genus", "Unknown")
+            species = taxonomy.get("species", "sp.")
+            strain_designation = taxonomy.get("strain designation", "")
+            
+            if strain_designation:
+                profile['Nama Bakteri'] = f"{genus} {species} {strain_designation}".strip()
+            else:
+                profile['Nama Bakteri'] = f"{genus} {species}".strip()
+        else:
+            # Fallback: coba dari struktur lain
+            if isinstance(strain_json, dict):
+                first_key = list(strain_json.keys())[0] if strain_json else "Unknown"
+                profile['Nama Bakteri'] = f"Strain {first_key}"
+            else:
+                profile['Nama Bakteri'] = "Unknown Species"
+                
+    except (KeyError, TypeError, IndexError) as e:
+        print(f"Error extracting taxonomy: {e}")
         profile['Nama Bakteri'] = "Unknown Species"
 
-    for param in get_param_keys():
-        if param in PARAM_TO_BACDIVE_KEY:
-            paths = PARAM_TO_BACDIVE_KEY[param]
-            found_value = None
-            for keys in paths:
-                value = strain_data
-                try:
-                    for key in keys:
-                        if isinstance(value, list):
-                            value = next((item.get(key) for item in value if isinstance(item, dict) and key in item), None)
-                        elif isinstance(value, dict):
-                            value = value.get(key)
-                        else:
-                            value = None
-                            break
-                    if value is not None:
-                        found_value = value
-                        break
-                except (KeyError, TypeError, StopIteration):
-                    continue
-
-            if found_value is not None:
-                if isinstance(found_value, dict):
-                    final_val = found_value.get('ability', found_value.get('activity'))
-                    if str(final_val).lower() in ['+', 'positive', 'acid', 'acid production', 'fermentation']:
-                         profile[param] = 'positive'
-                    elif str(final_val).lower() in ['-', 'negative', 'no', 'absent', 'not detected']:
-                         profile[param] = 'negative'
-                    else:
-                         profile[param] = final_val if final_val else 'N/A'
-                else:
-                    if str(found_value).lower() in ['+', 'positive', 'acid', 'acid production', 'fermentation']:
-                        profile[param] = 'positive'
-                    elif str(found_value).lower() in ['-', 'negative', 'no', 'absent', 'not detected']:
-                        profile[param] = 'negative'
-                    else:
-                        profile[param] = found_value if found_value else 'N/A'
-            else:
-                profile[param] = 'N/A'
-        else:
-            profile[param] = 'N/A'
+    # Extract parameters
+    for param in param_keys:
+        try:
+            profile[param] = extract_parameter_value(strain_json, param)
+        except Exception as e:
+            print(f"Error extracting {param}: {e}")
+            profile[param] = 'N/A' if param not in {'pH_range', 'Temperature_range', 'NaCl_tolerance'} else None
+    
     return profile
+
+def fetch_and_cache_profiles_by_taxonomy(session, genus, status_placeholder, log_container):
+    """
+    PERBAIKAN UTAMA: Menggunakan endpoint BacDive yang benar dan menangani berbagai format response
+    """
+    cache = load_cache()
+    now = time.time()
+
+    # Check cache validity
+    if genus in cache and (now - cache[genus].get('timestamp', 0)) < CACHE_DURATION_SECONDS:
+        cached_profiles = cache[genus].get('profiles', {})
+        if isinstance(cached_profiles, dict) and cached_profiles:
+            first_profile = next(iter(cached_profiles.values()), None)
+            if isinstance(first_profile, dict) and first_profile.get('Nama Bakteri', 'Unknown') != 'Unknown sp.':
+                status_placeholder.text(f"✓ Cache valid ditemukan untuk genus {genus}.")
+                log_container.info(f"Menggunakan {len(cached_profiles)} profil dari cache.")
+                time.sleep(0.3)
+                return cached_profiles
+        
+        log_container.warning(f"Cache untuk genus {genus} ditemukan tapi tidak valid. Mengambil ulang dari API.")
+
+    # PERBAIKAN UTAMA: Menggunakan endpoint yang sudah terbukti bekerja dari test
+    status_placeholder.text(f"☁ Mencari strain untuk genus {genus}...")
+    
+    # Gunakan endpoint /taxon/{genus} yang sudah terbukti bekerja
+    search_url = f"https://api.bacdive.dsmz.de/taxon/{genus}"
+    
+    try:
+        log_container.info(f"Menggunakan endpoint: {search_url}")
+        resp = session.get(search_url, timeout=30)
+        resp.raise_for_status()
+        
+        search_data = resp.json()
+        log_container.info(f"Response berhasil dari {search_url}")
+        log_container.info(f"Response keys: {list(search_data.keys())}")
+        
+        # Berdasarkan test hasil, response format adalah: {"count": X, "results": [...]}
+        if 'results' in search_data:
+            strain_ids = search_data['results']
+            total_count = search_data.get('count', len(strain_ids))
+            log_container.info(f"Found {len(strain_ids)} strain dalam response (total: {total_count})")
+        else:
+            log_container.error(f"Unexpected response structure: {search_data}")
+            return {}
+            
+    except requests.exceptions.HTTPError as e:
+        if e.response.status_code == 404:
+            status_placeholder.warning(f"Genus '{genus}' tidak ditemukan di BacDive.")
+            log_container.warning(f"404 - Genus {genus} not found in BacDive database")
+        else:
+            status_placeholder.error(f"HTTP Error {e.response.status_code} saat mencari {genus}")
+            log_container.error(f"HTTP {e.response.status_code}: {e}")
+        return {}
+    except (requests.RequestException, json.JSONDecodeError) as e:
+        status_placeholder.error(f"Gagal mencari strain untuk {genus}: {e}")
+        log_container.error(f"Search error for {genus}: {e}")
+        return {}
+
+    if not strain_ids:
+        status_placeholder.warning(f"Tidak ada strain yang ditemukan untuk genus {genus}.")
+        log_container.warning(f"Empty results for genus: {genus}")
+        return {}
+
+    log_container.info(f"Processing {len(strain_ids)} strain references for genus {genus}")
+
+    profiles = {}
+    param_keys = get_param_keys()
+    total_ids = len(strain_ids)
+    
+    # PERBAIKAN: Setiap item di results adalah referensi strain, bukan data lengkap
+    # Format typical: {"id": 12345, "url": "https://api.bacdive.dsmz.de/fetch/12345"}
+    processed = 0
+    max_profiles = 20  # Batasi untuk performa
+    
+    for i, strain_ref in enumerate(strain_ids[:max_profiles]):
+        global_i = i + 1
+        
+        status_placeholder.text(f"☁ Mengambil profil {global_i}/{min(total_ids, max_profiles)}...")
+        
+        try:
+            # Strain reference biasanya berupa dict dengan id dan url
+            if isinstance(strain_ref, dict):
+                strain_id = strain_ref.get('id')
+                strain_url = strain_ref.get('url')
+                
+                if not strain_id:
+                    log_container.warning(f"No ID found in strain reference: {strain_ref}")
+                    continue
+                
+                # Gunakan URL langsung jika ada, atau buat URL dari ID
+                if strain_url:
+                    fetch_url = strain_url
+                else:
+                    fetch_url = f"https://api.bacdive.dsmz.de/fetch/{strain_id}"
+
+            else:
+                # Jika strain_ref langsung berupa ID
+                strain_id = strain_ref
+                fetch_url = f"https://api.bacdive.dsmz.de/fetch/{strain_id}"
+            
+            log_container.info(f"Fetching: {fetch_url}")
+            
+            # Fetch data lengkap strain
+            r = session.get(fetch_url, timeout=30)
+            r.raise_for_status()
+            strain_data = r.json()
+            
+            # Debug first response structure
+            if global_i == 1:
+                log_container.info(f"Sample strain data keys: {list(strain_data.keys())}")
+            
+            # Extract profile data
+            clean = extract_bacdive_data(strain_data, param_keys)
+            
+            if clean.get("Nama Bakteri", "N/A") not in ["Unknown Species", "Unknown sp.", "N/A"]:
+                profiles[str(strain_id)] = clean
+                log_container.info(f"✓ Extracted: {clean.get('Nama Bakteri', 'Unknown')}")
+                processed += 1
+            else:
+                log_container.warning(f"Could not extract species name for strain ID {strain_id}")
+                
+        except requests.exceptions.HTTPError as e:
+            if e.response.status_code == 404:
+                log_container.warning(f"Strain data not found (404) for reference {i}")
+            else:
+                log_container.error(f"HTTP {e.response.status_code} for strain reference {i}: {e}")
+        except (requests.RequestException, json.JSONDecodeError) as e:
+            log_container.error(f"Error fetching strain reference {i}: {e}")
+        except Exception as e:
+            log_container.error(f"Unexpected error processing strain reference {i}: {e}")
+        
+        time.sleep(0.3)  # Rate limiting yang lebih moderat
+    
+    # Save to cache
+    cache[genus] = {"timestamp": now, "profiles": profiles}
+    save_cache(cache)
+    
+    status_placeholder.text(f"✓ Selesai mengambil data untuk {genus}.")
+    log_container.info(f"Successfully cached {len(profiles)} profiles for genus {genus}")
+    
+    return profiles
+
+def get_single_strain_json(session, genus):
+    """
+    PERBAIKAN: Mengambil satu contoh JSON dengan endpoint yang terbukti bekerja
+    """
+    search_url = f"https://api.bacdive.dsmz.de/taxon/{genus}"
+    
+    try:
+        response = session.get(search_url, timeout=30)
+        response.raise_for_status()
+        search_data = response.json()
+        
+        # Berdasarkan test hasil, format response: {"count": X, "results": [...]}
+        if 'results' not in search_data or not search_data['results']:
+            return {"error": f"Tidak ada strain yang ditemukan untuk genus '{genus}'."}
+        
+        strain_refs = search_data['results']
+        
+        # Ambil strain pertama
+        first_strain_ref = strain_refs[0]
+        
+        if isinstance(first_strain_ref, dict):
+            strain_id = first_strain_ref.get('id')
+            strain_url = first_strain_ref.get('url')
+            
+            if not strain_id:
+                return {"error": "Tidak dapat menemukan ID strain dari response pertama."}
+            
+            # Fetch data lengkap strain
+            if strain_url:
+                retrieve_url = strain_url
+            else:
+                retrieve_url = f"https://api.bacdive.dsmz.de/fetch/{strain_id}"
+
+            retrieve_response = session.get(retrieve_url, timeout=30)
+            retrieve_response.raise_for_status()
+            
+            strain_data = retrieve_response.json()
+            
+            return {
+                "bacdive_id": strain_id, 
+                "data": strain_data,
+                "debug_info": {
+                    "total_strains_found": search_data.get('count', len(strain_refs)),
+                    "json_structure_keys": list(strain_data.keys())
+                }
+            }
+        else:
+            return {"error": f"Format strain reference tidak dikenali: {first_strain_ref}"}
+        
+    except requests.exceptions.HTTPError as http_err:
+        details = http_err.response.text if hasattr(http_err, 'response') and http_err.response else "No details"
+        return {"error": f"Error HTTP: {http_err}", "details": details}
+    except requests.exceptions.RequestException as e:
+        return {"error": f"Error Koneksi: {e}"}
+    except json.JSONDecodeError:
+        return {"error": "Gagal mem-parsing respons JSON dari server."}
+
+# --- 4. Fungsi Scoring (tidak berubah) ---
+def _overlap_ratio(a, b):
+    if a is None or b is None: 
+        return 0.0
+    (a1, a2), (b1, b2) = a, b
+    lo = max(min(a1, a2), min(b1, b2))
+    hi = min(max(a1, a2), max(b1, b2))
+    inter = max(0.0, hi - lo)
+    union = (max(a1, a2) - min(a1, a2)) + (max(b2, b1) - min(b1, b1)) - inter
+    return inter / union if union > 0 else 0.0
+
+def calculate_weighted_similarity(user_input, bacdive_profile):
+    score, max_possible = 0.0, 0.0
+    details = []
+    normalized_user = {k: _normalize_simple_value(v) for k, v in user_input.items() if str(v).strip() != ''}
+
+    for param, weight in WEIGHTS.items():
+        max_possible += weight
+        uval_raw = user_input.get(param)
+        uval_norm = normalized_user.get(param)
+        bval = bacdive_profile.get(param)
+
+        if param in {'pH_range', 'Temperature_range', 'NaCl_tolerance'}:
+            urange = _parse_range(uval_raw) if uval_raw and str(uval_raw).strip() not in {'nd', 'n/a'} else None
+            brange = bval if isinstance(bval, tuple) else _parse_range(bval)
+            
+            part = _overlap_ratio(urange, brange)
+            score += weight * part
+            det_mark = '✅' if part >= 0.75 else ('➖' if part > 0.1 else '❌')
+            bval_disp = f"{brange[0]}-{brange[1]}" if brange else 'N/A'
+            details.append({"Parameter": param, "Input": uval_raw or 'N/A', "BacDive Match": bval_disp, "Bobot": weight, "Cocok": det_mark})
+            continue
+
+        if not uval_norm or uval_norm == 'nd' or bval in {None, 'N/A', 'nd'}:
+            details.append({"Parameter": param, "Input": uval_raw or 'N/A', "BacDive Match": bval or 'N/A', "Bobot": weight, "Cocok": "❓"})
+            continue
+
+        if bval == 'variable' or uval_norm == 'variable':
+            score += weight * 0.5
+            mark = '➖'
+        else:
+            match = (uval_norm == bval)
+            if match: 
+                score += weight
+            mark = '✅' if match else '❌'
+        
+        details.append({"Parameter": param, "Input": uval_raw or 'N/A', "BacDive Match": bval, "Bobot": weight, "Cocok": mark})
+
+    similarity = (score / max_possible) * 100.0 if max_possible > 0 else 0.0
+    return similarity, details
