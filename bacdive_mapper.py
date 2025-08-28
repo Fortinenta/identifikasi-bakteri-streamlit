@@ -217,9 +217,12 @@ def extract_parameter_value(strain_json, param):
         try:
             culture_conditions = strain_json.get("Culture and growth conditions", {})
             if culture_conditions:
-                temp_data = culture_conditions.get("culture temp") or culture_conditions.get("temperature")
-                if temp_data:
-                    return _parse_range(temp_data)
+                temp_data = culture_conditions.get("culture temp")
+                if temp_data and isinstance(temp_data, dict):
+                    # Cek apakah ada nilai temperature
+                    temp_val = temp_data.get("temperature")
+                    if temp_val:
+                        return _parse_range(temp_val)
         except Exception:
             pass
     
@@ -254,7 +257,7 @@ def extract_parameter_value(strain_json, param):
                         
                         # Cari key lain yang bukan metadata
                         for k, v in current.items():
-                            if k.lower() not in ['reference', 'method', 'note', 'id'] and v is not None:
+                            if k.lower() not in ['reference', 'method', 'note', 'id', '@ref'] and v is not None:
                                 return _normalize_simple_value(v)
                     
                     return _normalize_simple_value(current)
@@ -266,27 +269,54 @@ def extract_parameter_value(strain_json, param):
 
 def extract_bacdive_data(strain_json, param_keys):
     """
-    PERBAIKAN: Extract data dengan debugging yang lebih baik
+    PERBAIKAN UTAMA: Extract data dengan debugging yang lebih baik
+    Menangani struktur response BacDive yang sebenarnya
     """
     profile = {}
     
+    # PERBAIKAN: Menangani struktur response yang sebenarnya
+    # Response format: {"results": {"strain_id": {actual_data}}}
+    actual_strain_data = strain_json
+    
+    # Jika ada struktur results, ambil data strain pertama
+    if "results" in strain_json and isinstance(strain_json["results"], dict):
+        strain_ids = list(strain_json["results"].keys())
+        if strain_ids:
+            actual_strain_data = strain_json["results"][strain_ids[0]]
+    
     try:
         # Extract taxonomy information
-        if "Name and taxonomic classification" in strain_json:
-            taxonomy = strain_json["Name and taxonomic classification"]
+        if "Name and taxonomic classification" in actual_strain_data:
+            taxonomy = actual_strain_data["Name and taxonomic classification"]
             genus = taxonomy.get("genus", "Unknown")
             species = taxonomy.get("species", "sp.")
             strain_designation = taxonomy.get("strain designation", "")
+            
+            # Bersihkan nama species dari format HTML italic tags
+            if species:
+                species = species.replace("<I>", "").replace("</I>", "").replace("<i>", "").replace("</i>", "")
+                # Ambil hanya nama species tanpa bagian author
+                if "(" in species:
+                    species = species.split("(")[0].strip()
+                # Ambil bagian kedua dari nama binomial jika ada
+                species_parts = species.split()
+                if len(species_parts) >= 2:
+                    species = species_parts[1]
             
             if strain_designation:
                 profile['Nama Bakteri'] = f"{genus} {species} {strain_designation}".strip()
             else:
                 profile['Nama Bakteri'] = f"{genus} {species}".strip()
         else:
-            # Fallback: coba dari struktur lain
-            if isinstance(strain_json, dict):
-                first_key = list(strain_json.keys())[0] if strain_json else "Unknown"
-                profile['Nama Bakteri'] = f"Strain {first_key}"
+            # Fallback: coba dari General section
+            if "General" in actual_strain_data:
+                general = actual_strain_data["General"]
+                dsm_number = general.get("DSM-Number", "")
+                if dsm_number:
+                    profile['Nama Bakteri'] = f"DSM {dsm_number}"
+                else:
+                    bacdive_id = general.get("BacDive-ID", "")
+                    profile['Nama Bakteri'] = f"BacDive {bacdive_id}"
             else:
                 profile['Nama Bakteri'] = "Unknown Species"
                 
@@ -294,10 +324,10 @@ def extract_bacdive_data(strain_json, param_keys):
         print(f"Error extracting taxonomy: {e}")
         profile['Nama Bakteri'] = "Unknown Species"
 
-    # Extract parameters
+    # Extract parameters menggunakan data strain yang sebenarnya
     for param in param_keys:
         try:
-            profile[param] = extract_parameter_value(strain_json, param)
+            profile[param] = extract_parameter_value(actual_strain_data, param)
         except Exception as e:
             print(f"Error extracting {param}: {e}")
             profile[param] = 'N/A' if param not in {'pH_range', 'Temperature_range', 'NaCl_tolerance'} else None
@@ -316,8 +346,8 @@ def fetch_and_cache_profiles_by_taxonomy(session, genus, status_placeholder, log
         cached_profiles = cache[genus].get('profiles', {})
         if isinstance(cached_profiles, dict) and cached_profiles:
             first_profile = next(iter(cached_profiles.values()), None)
-            if isinstance(first_profile, dict) and first_profile.get('Nama Bakteri', 'Unknown') != 'Unknown sp.':
-                status_placeholder.text(f"✓ Cache valid ditemukan untuk genus {genus}.")
+            if isinstance(first_profile, dict) and first_profile.get('Nama Bakteri', 'Unknown') not in ['Unknown sp.', 'Unknown Species', 'Strain count']:
+                status_placeholder.text(f"✅ Cache valid ditemukan untuk genus {genus}.")
                 log_container.info(f"Menggunakan {len(cached_profiles)} profil dari cache.")
                 time.sleep(0.3)
                 return cached_profiles
@@ -325,7 +355,7 @@ def fetch_and_cache_profiles_by_taxonomy(session, genus, status_placeholder, log
         log_container.warning(f"Cache untuk genus {genus} ditemukan tapi tidak valid. Mengambil ulang dari API.")
 
     # PERBAIKAN UTAMA: Menggunakan endpoint yang sudah terbukti bekerja dari test
-    status_placeholder.text(f"☁ Mencari strain untuk genus {genus}...")
+    status_placeholder.text(f"⚙ Mencari strain untuk genus {genus}...")
     
     # Gunakan endpoint /taxon/{genus} yang sudah terbukti bekerja
     search_url = f"https://api.bacdive.dsmz.de/taxon/{genus}"
@@ -380,7 +410,7 @@ def fetch_and_cache_profiles_by_taxonomy(session, genus, status_placeholder, log
     for i, strain_ref in enumerate(strain_ids[:max_profiles]):
         global_i = i + 1
         
-        status_placeholder.text(f"☁ Mengambil profil {global_i}/{min(total_ids, max_profiles)}...")
+        status_placeholder.text(f"⚙ Mengambil profil {global_i}/{min(total_ids, max_profiles)}...")
         
         try:
             # Strain reference biasanya berupa dict dengan id dan url
@@ -417,12 +447,12 @@ def fetch_and_cache_profiles_by_taxonomy(session, genus, status_placeholder, log
             # Extract profile data
             clean = extract_bacdive_data(strain_data, param_keys)
             
-            if clean.get("Nama Bakteri", "N/A") not in ["Unknown Species", "Unknown sp.", "N/A"]:
+            if clean.get("Nama Bakteri", "N/A") not in ["Unknown Species", "Unknown sp.", "N/A", "Strain count"]:
                 profiles[str(strain_id)] = clean
-                log_container.info(f"✓ Extracted: {clean.get('Nama Bakteri', 'Unknown')}")
+                log_container.info(f"✅ Extracted: {clean.get('Nama Bakteri', 'Unknown')}")
                 processed += 1
             else:
-                log_container.warning(f"Could not extract species name for strain ID {strain_id}")
+                log_container.warning(f"Could not extract proper species name for strain ID {strain_id}: got '{clean.get('Nama Bakteri', 'N/A')}'")
                 
         except requests.exceptions.HTTPError as e:
             if e.response.status_code == 404:
@@ -440,7 +470,7 @@ def fetch_and_cache_profiles_by_taxonomy(session, genus, status_placeholder, log
     cache[genus] = {"timestamp": now, "profiles": profiles}
     save_cache(cache)
     
-    status_placeholder.text(f"✓ Selesai mengambil data untuk {genus}.")
+    status_placeholder.text(f"✅ Selesai mengambil data untuk {genus}.")
     log_container.info(f"Successfully cached {len(profiles)} profiles for genus {genus}")
     
     return profiles
