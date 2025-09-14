@@ -189,11 +189,8 @@ def fetch_and_display_detailed_profiles(session, genera_list):
 
     for i, genus in enumerate(genera_list):
         status_placeholder = st.empty()
-        log_container = st.container()
-        raw_profiles = {}
-
-        with st.expander(f"Log Fetch untuk Genus: {genus}", expanded=False):
-            raw_profiles = fetch_and_cache_profiles_by_taxonomy(session, genus, status_placeholder, log_container)
+        # Log container and expander removed for a cleaner UI.
+        raw_profiles = fetch_and_cache_profiles_by_taxonomy(session, genus, status_placeholder)
 
         if raw_profiles:
             all_profiles_list = []
@@ -262,7 +259,11 @@ def main():
         st.stop()
 
     with st.sidebar:
-        st.header("Panduan Penggunaan")
+        st.header("Pengaturan & Bantuan")
+        if st.button("🔄 Refresh Sesi & Token", help="Klik jika Anda mengalami error Unauthorized atau ingin memulai sesi baru."):
+            st.cache_resource.clear()
+            st.rerun()
+
         st.info(
             "1. **Download Template**: Unduh `template_input.csv`.\n"
             "2. **Isi Data**: Masukkan nama sampel, **genus**, dan hasil uji lab.\n"
@@ -297,71 +298,7 @@ def main():
         elif mode == "Edwardsiella Focus":
             WEIGHTS.update({'H2S_production': 4, 'Indole': 4, 'Motility': 3, 'Citrate': 3})
 
-    # PERBAIKAN: Section untuk debugging JSON structure
-    st.header("🔧 Debug & Testing")
-    with st.expander("Testing JSON Structure", expanded=False):
-        genus_for_json = st.text_input("Masukkan Genus untuk Testing JSON", "Bacillus")
-        if st.button("Test JSON Structure"):
-            if genus_for_json:
-                test_json_structure(session, genus_for_json)
-
-    # PERBAIKAN: Enhanced JSON sample display
-    st.header("📋 Tampilkan Contoh JSON Response")
-    st.write("Gunakan fitur ini untuk melihat contoh data JSON mentah yang dikembalikan oleh BacDive API untuk satu strain dari genus tertentu.")
     
-    col1, col2 = st.columns([3, 1])
-    with col1:
-        genus_for_json = st.text_input("Masukkan Genus untuk Contoh JSON", "Bacillus", key="json_genus")
-    with col2:
-        st.write("")  # Spacing
-        show_json_btn = st.button("Tampilkan Contoh JSON")
-    
-    if show_json_btn and genus_for_json:
-        with st.spinner(f"Mengambil contoh JSON untuk genus '{genus_for_json}'..."):
-            result = get_single_strain_json(session, genus_for_json)
-            if "error" in result:
-                st.error(f"Error: {result['error']}")
-                if "details" in result:
-                    st.code(result["details"])
-            else:
-                bacdive_id = result["bacdive_id"]
-                st.subheader(f"JSON Response untuk Strain ID: {bacdive_id}")
-                
-                # PERBAIKAN: Better JSON display with structure analysis
-                data = result["data"]
-                
-                # Show structure overview first
-                st.info(f"📊 JSON Structure Overview: {len(data)} main sections found")
-                
-                # Display main sections
-                col1, col2 = st.columns(2)
-                with col1:
-                    st.write("**Main Sections:**")
-                    for key in data.keys():
-                        st.write(f"• {key}")
-                
-                with col2:
-                    st.write("**Data Sample:**")
-                    if "Name and taxonomic classification" in data:
-                        taxonomy = data["Name and taxonomic classification"]
-                        genus = taxonomy.get("genus", "N/A")
-                        species = taxonomy.get("species", "N/A")
-                        st.write(f"Genus: {genus}")
-                        st.write(f"Species: {species}")
-                
-                # Full JSON display
-                st.subheader("Complete JSON Data")
-                json_string = json.dumps(data, indent=2, ensure_ascii=False)
-                st.json(data)
-
-                st.download_button(
-                    label="📥 Download JSON",
-                    data=json_string,
-                    file_name=f"bacdive_{bacdive_id}.json",
-                    mime="application/json"
-                )
-    
-    st.divider()
 
     # PERBAIKAN: Enhanced file upload section
     st.header("1. Upload File Input")
@@ -415,8 +352,10 @@ def main():
                     detailed_df = fetch_and_display_detailed_profiles(session, unique_genera)
 
                 st.header("4. Hasil Identifikasi per Sampel")
+
+                # List untuk menyimpan hasil dari setiap sampel untuk laporan akhir
+                all_sample_reports = []
                 
-                # PERBAIKAN: Progress tracking for sample processing
                 total_samples = len(data)
                 sample_progress = st.progress(0, text="Memulai identifikasi sampel...")
                 
@@ -425,7 +364,6 @@ def main():
                     sample_name = row.get("Sample_Name", f"Sampel #{index + 1}")
                     st.subheader(f"▶️ Hasil untuk Sampel: {sample_name}")
                     
-                    # Update progress
                     progress_pct = (index + 1) / total_samples
                     sample_progress.progress(
                         progress_pct, 
@@ -437,6 +375,12 @@ def main():
                     with st.expander(f"Lihat Log Detail Proses Fetch API untuk Sampel: {sample_name}"):
                         log_container = st.container()
                         results = process_sample(session, user_input, log_container)
+
+                    # Simpan hasil (bahkan jika kosong) untuk laporan akhir
+                    all_sample_reports.append({
+                        "sample_name": sample_name,
+                        "results": results
+                    })
 
                     if results:
                         top_result = results[0]
@@ -450,37 +394,102 @@ def main():
                             st.subheader("Laporan Perbandingan (vs Kandidat Utama)")
                             report_df = pd.DataFrame(top_result['details'])
                             st.dataframe(report_df.style.apply(highlight_comparison, subset=['Cocok']))
-
-                            # PERBAIKAN: Enhanced download options
-                            col1, col2 = st.columns(2)
-                            with col1:
-                                csv_buffer = io.StringIO()
-                                results_df.to_csv(csv_buffer, index=False)
-                                st.download_button(
-                                    label=f"📥 Download Kandidat (.csv)",
-                                    data=csv_buffer.getvalue(),
-                                    file_name=f"kandidat_{sample_name.replace(' ', '_')}.csv",
-                                    mime="text/csv",
-                                    key=f"csv_{index}"
-                                )
-                            
-                            with col2:
-                                report_buffer = io.StringIO()
-                                report_df.to_csv(report_buffer, index=False)
-                                st.download_button(
-                                    label=f"📥 Download Laporan (.csv)",
-                                    data=report_buffer.getvalue(),
-                                    file_name=f"laporan_{sample_name.replace(' ', '_')}.csv",
-                                    mime="text/csv",
-                                    key=f"report_{index}"
-                                )
                     else:
                         st.warning(f"❌ Tidak ada hasil yang cocok ditemukan untuk sampel {sample_name}.")
                         st.info("Kemungkinan penyebab: Genus tidak ditemukan di database BacDive atau masalah koneksi API.")
 
-                # Clear progress bar when done
                 sample_progress.empty()
                 st.success(f"✅ Selesai memproses {total_samples} sampel!")
+
+                # --- BAGIAN 5: LAPORAN LENGKAP DALAM FORMAT DOCX ---
+                st.divider()
+                st.header("5. Laporan Lengkap (.docx)")
+                st.info("Gunakan tombol di bawah ini untuk mengunduh laporan lengkap dalam format DOCX yang berisi ringkasan, daftar kandidat, dan detail perbandingan untuk setiap sampel.")
+
+                try:
+                    from docx import Document
+                    from docx.shared import Pt
+                    
+                    def add_df_to_doc(document, df):
+                        """Helper function to add a pandas DataFrame to a docx table."""
+                        if df.empty:
+                            document.add_paragraph("[Tidak ada data]", style='Italic')
+                            return
+                        table = document.add_table(rows=1, cols=df.shape[1], style='Table Grid')
+                        for j, col_name in enumerate(df.columns):
+                            table.cell(0, j).text = str(col_name)
+                        for i, row in df.iterrows():
+                            row_cells = table.add_row().cells
+                            for j, cell_value in enumerate(row):
+                                row_cells[j].text = str(cell_value)
+
+                    document = Document()
+                    document.add_heading('Laporan Lengkap Identifikasi Bakteri', 0)
+                    document.add_paragraph(f"Laporan dibuat pada: {pd.to_datetime('today').strftime('%d %B %Y, %H:%M')}")
+
+                    document.add_heading('Ringkasan Hasil Identifikasi', level=1)
+                    summary_data = []
+                    for report in all_sample_reports:
+                        if report['results']:
+                            top_res = report['results'][0]
+                            summary_data.append({
+                                'Nama Sampel': report['sample_name'],
+                                'Kandidat Teratas': top_res['Nama Bakteri'],
+                                'Skor Kemiripan': f"{top_res['Persentase']:.2f}%"
+                            })
+                        else:
+                            summary_data.append({
+                                'Nama Sampel': report['sample_name'],
+                                'Kandidat Teratas': 'Tidak ditemukan',
+                                'Skor Kemiripan': 'N/A'
+                            })
+                    summary_df = pd.DataFrame(summary_data)
+                    add_df_to_doc(document, summary_df)
+
+                    document.add_page_break()
+                    document.add_heading('Detail Identifikasi per Sampel', level=1)
+
+                    for report in all_sample_reports:
+                        document.add_heading(f"Sampel: {report['sample_name']}", level=2)
+                        
+                        results = report['results']
+                        if not results:
+                            document.add_paragraph("Tidak ada hasil yang cocok ditemukan untuk sampel ini.")
+                            document.add_paragraph('---')
+                            continue
+
+                        top_result = results[0]
+                        p = document.add_paragraph()
+                        p.add_run('Identifikasi Utama: ').bold = True
+                        p.add_run(f"{top_result['Nama Bakteri']} ({top_result['Persentase']:.2f}%)")
+
+                        document.add_heading('Daftar Kandidat Teratas', level=3)
+                        kandidat_df = pd.DataFrame(results).head(10)[["Rank", "Nama Bakteri", "Persentase", "ID"]]
+                        add_df_to_doc(document, kandidat_df)
+
+                        document.add_heading('Laporan Perbandingan Detail (vs Kandidat Utama)', level=3)
+                        detail_df = pd.DataFrame(top_result['details'])
+                        add_df_to_doc(document, detail_df)
+                        document.add_paragraph('') # Spacer
+
+                    doc_io = io.BytesIO()
+                    document.save(doc_io)
+                    doc_io.seek(0)
+
+                    st.download_button(
+                        label="📥 Download Laporan Lengkap (.docx)",
+                        data=doc_io,
+                        file_name="laporan_identifikasi_lengkap.docx",
+                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                        key="download-docx-report"
+                    )
+
+                except ImportError:
+                    st.error("Paket 'python-docx' tidak terinstal. Fitur unduh DOCX tidak dapat digunakan.")
+                    st.code("pip install python-docx")
+                except Exception as e:
+                    st.error(f"Gagal membuat file DOCX: {e}")
+                    st.exception(e)
 
         except Exception as e:
             st.error(f"Terjadi kesalahan saat memproses file: {e}")

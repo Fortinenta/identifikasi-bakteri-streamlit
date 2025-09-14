@@ -1,12 +1,49 @@
-Terjadi kesalahan saat memproses file: 'int' object has no attribute 'get'
+🔄 Memulai proses untuk genus: Streptococcus
 
-AttributeError: 'int' object has no attribute 'get'
-Traceback:
-File "C:\Python\identifikasi-bakteri-streamlit\app.py", line 260, in main
-    results = process_sample(session, user_input, log_container)
-File "C:\Python\identifikasi-bakteri-streamlit\app.py", line 70, in process_sample
-    score, details = calculate_weighted_similarity(user_input, bacdive_profile)
-                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-File "C:\Python\identifikasi-bakteri-streamlit\bacdive_mapper.py", line 215, in calculate_weighted_similarity
-    bval = bacdive_profile.get(param)
-           ^^^^^^^^^^^^^^^^^^^
+Menggunakan 20 profil dari cache.
+
+📊 Raw profiles received: 20
+
+📋 Sample bacteria found: ['ID 14711: Streptococcus acidominimus Ayers and Mudge 1922 (Approved Lists 1980)', 'ID 14712: Streptococcus agalactiae Lehmann and Neumann 1896 (Approved Lists 1980)', 'ID 14713: Streptococcus agalactiae Lehmann and Neumann 1896 (Approved Lists 1980)', 'ID 14714: Streptococcus agalactiae corrig. Eldar et al. 1995', 'ID 14715: Streptococcus alactolyticus Farrow et al. 1985']
+
+✅ Found 20 valid profiles. Starting similarity analysis...
+
+❌ Error calculating similarity for ID 14711: name '_overlap_ratio' is not defined
+
+❌ Error calculating similarity for ID 14712: name '_overlap_ratio' is not defined
+
+❌ Error calculating similarity for ID 14713: name '_overlap_ratio' is not defined
+
+❌ Error calculating similarity for ID 14714: name '_overlap_ratio' is not defined
+
+❌ Error calculating similarity for ID 14715: name '_overlap_ratio' is not defined
+
+❌ Error calculating similarity for ID 14716: name '_overlap_ratio' is not defined
+
+❌ Error calculating similarity for ID 14717: name '_overlap_ratio' is not defined
+
+❌ Error calculating similarity for ID 14718: name '_overlap_ratio' is not defined
+
+❌ Error calculating similarity for ID 14719: name '_overlap_ratio' is not defined
+
+❌ Error calculating similarity for ID 14720: name '_overlap_ratio' is not defined
+
+❌ Error calculating similarity for ID 14721: name '_overlap_ratio' is not defined
+
+❌ Error calculating similarity for ID 14722: name '_overlap_ratio' is not defined
+
+❌ Error calculating similarity for ID 14723: name '_overlap_ratio' is not defined
+
+❌ Error calculating similarity for ID 14724: name '_overlap_ratio' is not defined
+
+❌ Error calculating similarity for ID 14725: name '_overlap_ratio' is not defined
+
+❌ Error calculating similarity for ID 14726: name '_overlap_ratio' is not defined
+
+❌ Error calculating similarity for ID 14727: name '_overlap_ratio' is not defined
+
+❌ Error calculating similarity for ID 14728: name '_overlap_ratio' is not defined
+
+❌ Error calculating similarity for ID 14729: name '_overlap_ratio' is not defined
+
+❌ Error calculating similarity for ID 14730: name '_overlap_ratio' is not defined
